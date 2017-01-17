@@ -259,7 +259,6 @@ void PageCache<NodeType>::ReadFilePage(int64_t page_id, FilePage &fpage)
     fread((void *)&fpage.next, sizeof(fpage.next), 1, m_file);
     fread((void *)&fpage.page_id, sizeof(fpage.page_id), 1, m_file);
 }
-
 }
 #endif
 
