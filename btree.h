@@ -10,6 +10,7 @@
 #include <map>
 #include <assert.h>
 #include <sstream>
+#include <inttypes.h>
 
 namespace fishdb 
 {
@@ -22,16 +23,7 @@ static const int BT_BLOCK_SIZE = 4096;
 static const int BT_DEFAULT_KEY_NUM = 2;
 
 class BTreeIter;
-
-struct BtNode
-{
-    bool is_leaf;
-	int64_t offset;
-    std::vector<std::pair<std::string, std::string>> kvs;
-    std::vector<int64_t> children;
-};
-
-typedef std::vector<std::pair<std::string, std::string>>::iterator KvIter;
+typedef std::vector<KV>::iterator KVIter;
 
 struct DefaultCmp
 {
@@ -45,32 +37,20 @@ struct DefaultCmp
     }
 };
 
-class NodeCache
+struct KV
 {
-public:
-    NodeCache(): m_next_node_id(0) {}
+    std::string key;
+    std::string value;
+    KV(const std::string &_key, const std::string &_value):
+        key(_key), value(_value) {}
+};
 
-    std::shared_ptr<BtNode> AllocNode()
-    {
-        auto &node = m_pages[m_next_node_id++];
-        node = std::make_shared<BtNode>();
-        node->offset = m_next_node_id - 1;
-        return node;
-    }
-
-    std::shared_ptr<BtNode> GetNode(size_t offset)
-    {
-        auto iter = m_pages.find(offset);
-        assert(iter != m_pages.end());
-        return iter->second;
-    }
-
-    void WriteNode(size_t offset, const char * data)
-    {
-    }
-private:
-    uint64_t m_next_node_id;
-    std::map<size_t, std::shared_ptr<BtNode>> m_pages;
+struct BtNode
+{
+    int64_t page_no;
+    bool is_leaf;
+    std::vector<int64_t> children;
+    std::vector<KV> kvs;
 };
 
 class BTree
@@ -91,61 +71,25 @@ protected:
     std::shared_ptr<BtNode> DiskRead(size_t offset);
     void DiskWrite(size_t offset, const BtNode &node);
 
-    KvIter GetUpperIter(std::shared_ptr<BtNode> node, std::string &key);
+    KVIter GetUpperIter(std::shared_ptr<BtNode> node, std::string &key);
     std::shared_ptr<BtNode> AllocNode();
     void Insert(std::shared_ptr<BtNode> now, std::shared_ptr<BtNode> parent,
             int upper_idx, std::string &key, std::string &data);
-    int Delete(std::shared_ptr<BtNode> now, std::shared_ptr<BtNode> parent, int child_idx, std::string &key);
+    int Delete(std::shared_ptr<BtNode> now, std::shared_ptr<BtNode> parent,
+            int child_idx, std::string &key);
     void Maintain(std::shared_ptr<BtNode> now, std::shared_ptr<BtNode> parent, int child_idx);
 
-	std::string Keys(BtNode *node)
-	{
-		std::ostringstream out;
-		out << "[";
-		for (size_t i = 0; i < node->kvs.size(); ++i)
-		{
-			out << node->kvs[i].first << ((i == node->kvs.size() - 1) ? "" : " ");
-		}
-		out << "]";
-
-		return out.str();
-	}
-
-	std::string Childen(BtNode *node)
-	{
-		std::ostringstream out;
-		out << "[";
-		for (size_t i = 0; i < node->children.size(); ++i)
-		{
-			out << node->children[i] << ((i == node->children.size() - 1) ? "" : " ");
-		}
-		out << "]";
-
-		return out.str();
-	}
-
-	void Print(std::shared_ptr<BtNode> now)
-	{
-		printf("%lld, %s -> %s\n", now->offset, Keys(now.get()).c_str(), Childen(now.get()).c_str());
-		for (size_t i = 0; i < now->children.size(); ++i)
-		{
-			auto child = DiskRead(now->children[i]);
-			Print(DiskRead(now->children[i]));
-		}
-	}
+	std::string Keys(BtNode *node);
+	std::string Childen(BtNode *node);
+	void Print(std::shared_ptr<BtNode> now);
 
 private:
-    NodeCache m_cache;
+    Pager m_pager;
     int m_min_key_num;
     CmpFunc m_cmp_func;
 
 public:
     std::shared_ptr<BtNode> m_root;
-};
-
-class BTreeIter
-{
-public:
 };
 
 }

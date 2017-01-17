@@ -28,11 +28,11 @@ std::shared_ptr<BtNode> BTree::AllocNode()
     return m_cache.AllocNode();
 }
 
-KvIter BTree::GetUpperIter(std::shared_ptr<BtNode> node, std::string &key)
+KVIter BTree::GetUpperIter(std::shared_ptr<BtNode> node, std::string &key)
 {
     for (auto iter = node->kvs.begin(); iter != node->kvs.end(); ++iter)
     {
-        if (!m_cmp_func(iter->first, key))
+        if (!m_cmp_func(iter->key, key))
             return iter;
     }
     return node->kvs.end();
@@ -46,9 +46,9 @@ int BTree::Get(const char *k, std::string &data)
     {
         auto iter = GetUpperIter(now, key);
         size_t p = iter - now->kvs.begin();
-        if (iter != now->kvs.end() && Equal(iter->first, key))
+        if (iter != now->kvs.end() && Equal(iter->key, key))
         {
-            data = iter->second;
+            data = iter->value;
             return BT_OK;
         }
         else if (!now->is_leaf)
@@ -71,12 +71,12 @@ void BTree::Insert(std::shared_ptr<BtNode> now, std::shared_ptr<BtNode> parent, 
 {
     auto iter = GetUpperIter(now, key);
     size_t p = iter - now->kvs.begin();
-    if (iter != now->kvs.end() && Equal(iter->first, key))
-        iter->second = data;
+    if (iter != now->kvs.end() && Equal(iter->key, key))
+        iter->value = data;
     else if (!now->is_leaf)
 		Insert(DiskRead(now->children[p]), now, p, key, data);
 	else
-		now->kvs.insert(iter, std::make_pair(key, data));
+		now->kvs.insert(iter, KV(key, data));
 
     if ((int)now->kvs.size() <= 2 * m_min_key_num) return;
     // split full
@@ -101,7 +101,7 @@ void BTree::Insert(std::shared_ptr<BtNode> now, std::shared_ptr<BtNode> parent, 
 		assert(upper_idx == 0);
 		parent->children.resize(upper_idx + 1);
     }
-	assert(upper_idx < parent->children.size());
+	assert(upper_idx < (int)parent->children.size());
     parent->kvs.insert(parent->kvs.begin() + upper_idx, now->kvs[mid]);
     parent->children[upper_idx] = left->offset;
     parent->children.insert(parent->children.begin() + upper_idx + 1, right->offset);
@@ -119,7 +119,7 @@ int BTree::Delete(std::shared_ptr<BtNode> now, std::shared_ptr<BtNode> parent, i
     size_t p = iter - now->kvs.begin();
 
 	int del_ret = BT_NOT_FOUND;
-    if (iter != now->kvs.end() && Equal(iter->first, key))
+    if (iter != now->kvs.end() && Equal(iter->key, key))
     {
         if (!now->is_leaf)
         {
@@ -129,7 +129,7 @@ int BTree::Delete(std::shared_ptr<BtNode> now, std::shared_ptr<BtNode> parent, i
                 nd = DiskRead(nd->children.back());
 
             now->kvs[p] = nd->kvs.back();
-			Delete(left, now, p, nd->kvs.back().first);
+			Delete(left, now, p, nd->kvs.back().key);
         }
         else
             now->kvs.erase(iter);
@@ -145,7 +145,7 @@ int BTree::Delete(std::shared_ptr<BtNode> now, std::shared_ptr<BtNode> parent, i
 		assert(now->children.size() == 1);
 		m_root = DiskRead(now->children[0]);
 	}
-	else if (now->kvs.size() < m_min_key_num)
+	else if ((int)now->kvs.size() < m_min_key_num)
 		Maintain(now, parent, child_idx);
 
 	return del_ret;
@@ -159,7 +159,7 @@ void BTree::Maintain(std::shared_ptr<BtNode> now, std::shared_ptr<BtNode> parent
 	auto right = (child_idx < (int)parent->children.size() - 1) ? DiskRead(parent->children[child_idx + 1]) : nil;
 
 	// 1.
-    if (left && left->kvs.size() > m_min_key_num)
+    if (left && (int)left->kvs.size() > m_min_key_num)
     {
         now->kvs.insert(now->kvs.begin(), parent->kvs[left_sep]);
         if (!left->is_leaf)
@@ -172,7 +172,7 @@ void BTree::Maintain(std::shared_ptr<BtNode> now, std::shared_ptr<BtNode> parent
         return;
     }
 	// 2.
-    if (right && right->kvs.size() > m_min_key_num)
+    if (right && (int)right->kvs.size() > m_min_key_num)
     {
         now->kvs.push_back(parent->kvs[right_sep]);
         if (!right->is_leaf)
@@ -211,6 +211,42 @@ void BTree::Maintain(std::shared_ptr<BtNode> now, std::shared_ptr<BtNode> parent
 bool BTree::Equal(const std::string &a, const std::string &b)
 {
     return !m_cmp_func(a, b) && !m_cmp_func(b, a);
+}
+
+std::string BTree::Keys(BtNode *node)
+{
+    std::ostringstream out;
+    out << "[";
+    for (size_t i = 0; i < node->kvs.size(); ++i)
+    {
+        out << node->kvs[i].key << ((i == node->kvs.size() - 1) ? "" : " ");
+    }
+    out << "]";
+
+    return out.str();
+}
+
+std::string BTree::Childen(BtNode *node)
+{
+    std::ostringstream out;
+    out << "[";
+    for (size_t i = 0; i < node->children.size(); ++i)
+    {
+        out << node->children[i] << ((i == node->children.size() - 1) ? "" : " ");
+    }
+    out << "]";
+
+    return out.str();
+}
+
+void BTree::Print(std::shared_ptr<BtNode> now)
+{
+    printf("%"PRId64", %s -> %s\n", now->offset, Keys(now.get()).c_str(), Childen(now.get()).c_str());
+    for (size_t i = 0; i < now->children.size(); ++i)
+    {
+        auto child = DiskRead(now->children[i]);
+        Print(DiskRead(now->children[i]));
+    }
 }
 
 std::shared_ptr<BtNode> BTree::DiskRead(size_t offset)
