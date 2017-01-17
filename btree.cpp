@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <queue>
 #include <sstream>
+#include "format.h"
 
 namespace fishdb
 {
@@ -249,18 +250,41 @@ void BTree::Print(std::shared_ptr<BtNode> now)
     }
 }
 
-void BTNode::Serialize(char buf[], int &len)
+void BtNode::Serialize(char *buf, int &len)
 {
-    void *p = buf;
-    *((int64_t *)p) = page_no;
-    p += sizeof(int64_t);
-    *((bool *)p) = is_leaf;
-    p += sizeof(bool);
-
+    buf += EncodeInt64(buf, page_no);
+    buf += EncodeBool(buf, is_leaf);
+    buf += EncodeInt32(buf, children.size());
+    for (size_t i = 0; i < children.size(); ++i)
+        buf += EncodeInt64(buf, children[i]);
+    buf += EncodeInt32(buf, kvs.size());
+    for (size_t i = 0; i < kvs.size(); ++i)
+    {
+        buf += EncodeString(buf, kvs[i].key);
+        buf += EncodeString(buf, kvs[i].value);
+    }
 }
 
-void BTNode::Parse(char buf[])
+void BtNode::Parse(char *buf, int len)
 {
+    buf += DecodeInt64(buf, page_no);
+    buf += DecodeBool(buf, is_leaf);
+    int32_t num;
+    buf += DecodeInt32(buf, num);
+    for (int i = 0; i < num; ++i)
+    {
+        int64_t c;
+        buf += DecodeInt64(buf, c);
+        children.push_back(c);
+    }
+    buf += DecodeInt32(buf, num);
+    for (int i = 0; i < num; ++i)
+    {
+        std::string k, v;
+        buf += DecodeString(buf, k);
+        buf += DecodeString(buf, v);
+        kvs.push_back(KV(k, v));
+    }
 }
 
 }

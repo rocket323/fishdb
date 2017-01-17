@@ -11,6 +11,7 @@
 #include <assert.h>
 #include <sstream>
 #include <inttypes.h>
+#include "pager.h"
 
 namespace fishdb 
 {
@@ -23,7 +24,6 @@ static const int BT_BLOCK_SIZE = 4096;
 static const int BT_DEFAULT_KEY_NUM = 2;
 
 class BTreeIter;
-typedef std::vector<KV>::iterator KVIter;
 
 struct DefaultCmp
 {
@@ -44,6 +44,7 @@ struct KV
     KV(const std::string &_key, const std::string &_value):
         key(_key), value(_value) {}
 };
+typedef std::vector<KV>::iterator KVIter;
 
 struct BtNode
 {
@@ -52,8 +53,8 @@ struct BtNode
     std::vector<int64_t> children;
     std::vector<KV> kvs;
 
-    void Serialize(char buf[], int &len);
-    void Parse(char buf[]);
+    void Serialize(char *buf, int &len);
+    void Parse(char *buf, int len);
 };
 
 class BTree

@@ -1,8 +1,15 @@
 #ifndef PAGER_H_
 #define PAGER_H_
+#include <stdint.h>
+#include <memory>
+#include <map>
 
 namespace fishdb
 {
+
+static const int PAGE_SIZE = 512;
+
+class BtNode;
 
 struct DBHeader
 {
@@ -29,7 +36,7 @@ struct PageHeader
 struct Page
 {
     PageHeader header;
-    std::shared_ptr<BTNode> node;
+    std::shared_ptr<BtNode> node;
     Page *lru_prev;
     Page *lru_next;
 };
@@ -42,8 +49,8 @@ public:
 
     int64_t AllocNode();
     int FreeNode(int64_t page_no);
-    int WriteNode(int64_t page_no, std::shared_ptr<BTNode> node);
-    int ReadNode(int64_t page_no, std::shared_ptr<BTNode> &node);
+    int WriteNode(int64_t page_no, std::shared_ptr<BtNode> node);
+    int ReadNode(int64_t page_no, std::shared_ptr<BtNode> &node);
 
 protected:
     void Attach(Page *page);
@@ -53,12 +60,10 @@ protected:
 
     void WritePage(int64_t page_no, std::shared_ptr<Page> page);
     void ReadPage(int64_t page_no, std::shared_ptr<Page> &page);
-    void DecodeNode(char buf[], BTNode *node);
-    void EncodeNode(char buf[], BTNode *node);
 
     int64_t PageOffset(int64_t page_no)
     {
-        return page_id * PAGE_SIZE;
+        return page_no * PAGE_SIZE;
     }
 
 private:

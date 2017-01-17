@@ -145,5 +145,7 @@ void Pager::ReadPage(int64_t page_no, std::shared_ptr<Page> &page)
 
     // decode node
     uint16_t node_size = PAGE_SIZE - sizeof(PageHeader);
+    page->node = std::make_shared<BtNode>();
+    page->node->Parse(buf, node_size);
 }
 
