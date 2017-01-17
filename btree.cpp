@@ -249,12 +249,17 @@ void BTree::Print(std::shared_ptr<BtNode> now)
     }
 }
 
-std::shared_ptr<BtNode> BTree::DiskRead(size_t offset)
+void BTNode::Serialize(char buf[], int &len)
 {
-    return m_cache.GetNode(offset);
+    void *p = buf;
+    *((int64_t *)p) = page_no;
+    p += sizeof(int64_t);
+    *((bool *)p) = is_leaf;
+    p += sizeof(bool);
+
 }
 
-void BTree::DiskWrite(size_t offset, const BtNode &node)
+void BTNode::Parse(char buf[])
 {
 }
 

@@ -53,6 +53,8 @@ protected:
 
     void WritePage(int64_t page_no, std::shared_ptr<Page> page);
     void ReadPage(int64_t page_no, std::shared_ptr<Page> &page);
+    void DecodeNode(char buf[], BTNode *node);
+    void EncodeNode(char buf[], BTNode *node);
 
     int64_t PageOffset(int64_t page_no)
     {

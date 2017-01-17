@@ -51,6 +51,9 @@ struct BtNode
     bool is_leaf;
     std::vector<int64_t> children;
     std::vector<KV> kvs;
+
+    void Serialize(char buf[], int &len);
+    void Parse(char buf[]);
 };
 
 class BTree

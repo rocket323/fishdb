@@ -133,14 +133,17 @@ void Pager::ReadPage(int64_t page_no, std::shared_ptr<Page> &page)
 
     std::shared_ptr<Page> tp;
     fseek(m_file, offset, SEEK_SET);
-
     fread((void *)buf, PAGE_SIZE, 1, m_file);
     PageHeader *page_header = (PageHeader *)buf;
+
     if (page_header->page_cnt > 1)
     {
-        int64_t overflow_offset = PageOffset(page_header->of_page_no);
-
+        int64_t of_offset = PageOffset(page_header->of_page_no);
+        fseek(m_file, of_offset, SEEK_SET);
         fread((void *)buf + PAGE_SIZE, PAGE_SIZE, buf->page_cnt - 1, m_file);
     }
+
+    // decode node
+    uint16_t node_size = PAGE_SIZE - sizeof(PageHeader);
 }
 
