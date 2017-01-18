@@ -13,15 +13,19 @@ class BtNode;
 class Iterator
 {
 public:
-    Iterator();
+    Iterator(BTree *btree);
 
-    int SeekToFirst();
-    int SeekToLast();
-    int Seek();
-    int Next();
+    void SeekToFirst();
+    void SeekToLast();
+    void Seek(const char *k);
+    void Next();
     bool Valid();
 
+    std::string Key();
+    std::string Value();
+
 private:
+    BTree *m_btree;
     std::vector<std::shared_ptr<BtNode>> m_stack;
     int m_kv_idx;
     bool m_valid;

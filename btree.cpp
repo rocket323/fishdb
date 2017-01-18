@@ -40,11 +40,31 @@ std::shared_ptr<BtNode> BTree::DiskRead(int64_t page_no)
     return node;
 }
 
-KVIter BTree::GetUpperIter(std::shared_ptr<BtNode> node, std::string &key)
+bool BTree::Equal(const std::string &a, const std::string &b)
+{
+    return !m_cmp_func(a, b) && !m_cmp_func(b, a);
+}
+
+bool BTree::Less(std::string &a, std::string &b)
+{
+    return m_cmp_func(a, b);
+}
+
+KVIter BTree::LowerBound(std::shared_ptr<BtNode> node, std::string &key)
 {
     for (auto iter = node->kvs.begin(); iter != node->kvs.end(); ++iter)
     {
         if (!m_cmp_func(iter->key, key))
+            return iter;
+    }
+    return node->kvs.end();
+}
+
+KVIter BTree::UpperBound(std::shared_ptr<BtNode> node, std::string &key)
+{
+    for (auto iter = node->kvs.begin(); iter != node->kvs.end(); ++iter)
+    {
+        if (m_cmp_func(key, iter->key))
             return iter;
     }
     return node->kvs.end();
@@ -56,7 +76,7 @@ int BTree::Get(const char *k, std::string &data)
     auto now = m_root;
     while (now != NULL)
     {
-        auto iter = GetUpperIter(now, key);
+        auto iter = LowerBound(now, key);
         size_t p = iter - now->kvs.begin();
         if (iter != now->kvs.end() && Equal(iter->key, key))
         {
@@ -81,7 +101,7 @@ int BTree::Put(const char *k, const char *v)
 void BTree::Insert(std::shared_ptr<BtNode> now, std::shared_ptr<BtNode> parent, int upper_idx,
         std::string &key, std::string &data)
 {
-    auto iter = GetUpperIter(now, key);
+    auto iter = LowerBound(now, key);
     size_t p = iter - now->kvs.begin();
     if (iter != now->kvs.end() && Equal(iter->key, key))
         iter->value = data;
@@ -127,7 +147,7 @@ int BTree::Del(const char *k)
 
 int BTree::Delete(std::shared_ptr<BtNode> now, std::shared_ptr<BtNode> parent, int child_idx, std::string &key)
 {
-    auto iter = GetUpperIter(now, key);
+    auto iter = LowerBound(now, key);
     size_t p = iter - now->kvs.begin();
 
 	int del_ret = BT_NOT_FOUND;
@@ -218,11 +238,6 @@ void BTree::Maintain(std::shared_ptr<BtNode> now, std::shared_ptr<BtNode> parent
     }
     else
         assert(false);
-}
-
-bool BTree::Equal(const std::string &a, const std::string &b)
-{
-    return !m_cmp_func(a, b) && !m_cmp_func(b, a);
 }
 
 std::string BTree::Keys(BtNode *node)

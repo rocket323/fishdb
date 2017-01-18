@@ -62,6 +62,7 @@ class Iterator;
 class BTree
 {
 public:
+    friend class Iterator;
     typedef std::function<bool(const std::string &, const std::string &)> CmpFunc;
 
     BTree(CmpFunc cmp_func, int max_key_num = BT_DEFAULT_KEY_NUM);
@@ -73,14 +74,16 @@ public:
     int Del(const char *key);
 
     Iterator * NewIterator();
+    bool Less(std::string &a, std::string &b);
+    bool Equal(const std::string &a, const std::string &b);
+    KVIter LowerBound(std::shared_ptr<BtNode> node, std::string &key);
+    KVIter UpperBound(std::shared_ptr<BtNode> node, std::string &key);
 
 protected:
     std::shared_ptr<BtNode> AllocNode();
     std::shared_ptr<BtNode> DiskRead(size_t page_no);
     void DiskWrite(size_t page_no, const BtNode &node);
 
-    bool Equal(const std::string &a, const std::string &b);
-    KVIter GetUpperIter(std::shared_ptr<BtNode> node, std::string &key);
     void Insert(std::shared_ptr<BtNode> now, std::shared_ptr<BtNode> parent,
             int upper_idx, std::string &key, std::string &data);
     int Delete(std::shared_ptr<BtNode> now, std::shared_ptr<BtNode> parent,
