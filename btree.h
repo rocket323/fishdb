@@ -57,6 +57,8 @@ struct BtNode
     void Parse(char *buf, int len);
 };
 
+class Iterator;
+
 class BTree
 {
 public:
@@ -69,6 +71,8 @@ public:
     int Get(const char *key, std::string &data);
     int Put(const char *key, const char *data);
     int Del(const char *key);
+
+    Iterator * NewIterator();
 
 protected:
     std::shared_ptr<BtNode> AllocNode();
