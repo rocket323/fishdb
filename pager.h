@@ -47,7 +47,7 @@ public:
     int Init(std::string fname);
     void Close();
 
-    int64_t AllocNode();
+    int64_t AllocPage(int n = 1);
     int FreeNode(int64_t page_no);
     int WriteNode(int64_t page_no, std::shared_ptr<BtNode> node);
     int ReadNode(int64_t page_no, std::shared_ptr<BtNode> &node);
@@ -64,6 +64,20 @@ protected:
     int64_t PageOffset(int64_t page_no)
     {
         return page_no * PAGE_SIZE;
+    }
+
+    int PageOccupied(int64_t node_size)
+    {
+        if (node_size <= PAGE_SIZE - sizeof(PageHeader))
+        {
+            return 1;
+        }
+        else
+        {
+            int64_t overflow_size = node_size - (PAGE_SIZE - sizeof(PageHeader));
+            int64_t overflow_pages = (overflow_size + PAGE_SIZE - 1) / PAGE_SIZE;
+            return 1 + overflow_pages;
+        }
     }
 
 private:

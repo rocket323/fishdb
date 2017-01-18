@@ -71,12 +71,12 @@ public:
     int Del(const char *key);
 
 protected:
-    bool Equal(const std::string &a, const std::string &b);
-    std::shared_ptr<BtNode> DiskRead(size_t offset);
-    void DiskWrite(size_t offset, const BtNode &node);
-
-    KVIter GetUpperIter(std::shared_ptr<BtNode> node, std::string &key);
     std::shared_ptr<BtNode> AllocNode();
+    std::shared_ptr<BtNode> DiskRead(size_t page_no);
+    void DiskWrite(size_t page_no, const BtNode &node);
+
+    bool Equal(const std::string &a, const std::string &b);
+    KVIter GetUpperIter(std::shared_ptr<BtNode> node, std::string &key);
     void Insert(std::shared_ptr<BtNode> now, std::shared_ptr<BtNode> parent,
             int upper_idx, std::string &key, std::string &data);
     int Delete(std::shared_ptr<BtNode> now, std::shared_ptr<BtNode> parent,

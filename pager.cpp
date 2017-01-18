@@ -1,5 +1,7 @@
 #include "pager.h"
 
+std::shared_ptr<Page> page_nil;
+
 int Pager::Init(std::string fname)
 {
     m_db_header = new DBHeader();
@@ -44,19 +46,34 @@ void Pager::Close()
     delete m_tail;
 }
 
-int64_t Pager::AllocNode()
+std::shared_ptr<Page> Pager::AllocPage(int n)
 {
-    if (m_db_header->free_list == -1)
-        return m_db_header->total_pages++;
-    else
+    if (m_db_header->free_list != -1 && n == 1)
     {
         int64_t page_no = m_db_header->free_list;
         std::shared_ptr<Page> page;
         ReadPage(page_no, page);
         m_db_header->free_list = page->header.next_free;
-        return page_no;
+
+        CachePage(page_no, page);
+        Attach(page);
+        
+        return page;
     }
-    return -1;
+    else
+    {
+        int64_t page_no = m_db_header->total_pages;
+        m_db_header->total_pages += n;
+        auto page = std::make_shared<Page>();
+        page->node = std::make_shared<BtNode>();
+        page->node->page_no = page_no;
+
+        CachePage(page_no, page);
+        Attach(page);
+
+        return page;
+    }
+    return page_nil;
 }
 
 int Pager::FreeNode(int64_t page_no)
@@ -124,6 +141,53 @@ char buf[PAGE_SIZE * 100];
 
 void Pager::WritePage(int64_t page_no, std::shared_ptr<Page> page)
 {
+    printf("writing page: %ld\n", page_no);
+    assert(page_no > 0);
+    int64_t offset = PageOffset(page_no);
+    if (offset + PAGE_SIZE > m_file_size)
+    {
+        ftruncate((fileno(m_file), offset + PAGE_SIZE));
+        m_file_size = offset + PAGE_SIZE;
+    }
+
+    int node_size = 0;
+    page->node->Serialize(buf, node_size);
+    PageHeader *page_header = &page->header;
+    fseek(m_file, offset, SEEK_SET);
+    if (node_size <= PAGE_SIZE - sizeof(PageHeader))
+    {
+        page_header->type = SINGLE;
+        page_header->page_cnt = 1;
+        page_header->of_page_no = -1;
+        fwrite((void *)page_header, sizeof(PageHeader), 1, m_file);
+        fwrite((void *)buf, node_size, 1, m_file);
+    }
+    else
+    {
+        int remain_size = node_size - (PAGE_SIZE - sizeof(PageHeader));
+        page_header->type = MULTI;
+        page_header->page_cnt = PageOccupied(node_size);
+        int64_t of_page_no = AllocPage(page_header->page_cnt - 1);
+        page_header->of_page_no = of_page_no;
+        fwrite((void *)page_header, sizeof(PageHeader), 1, m_file);
+        fwrite((void *)buf, PAGE_SIZE - sizeof(PageHeader), 1, m_file);
+
+        // write overflow pages
+        int64_t of_offset = PageOffset(of_page_no);
+        int64_t of_size = AGE_SIZE * (pager_header->page_cnt - 1);
+        if (of_offset + of_size > m_file_size)
+        {
+            ftruncate(fileno(m_file), of_offset + of_size);
+            m_file_size = of_offset + of_size;
+        }
+        fseek(m_file, of_offset, SEEK_SET);
+        for (int i = 0; i < page_header->page_cnt - 1; ++i)
+        {
+            int64_t base = PAGE_SIZE - sizeof(PageHeader) + i * PAGE_SIZE;
+            int64_t len = (base + PAGE_SIZE <= node_size) ? PAGE_SIZE : node_size - base;
+            fwrite((void *)buf + base, len, 1, m_file);
+        }
+    }
 }
 
 void Pager::ReadPage(int64_t page_no, std::shared_ptr<Page> &page)

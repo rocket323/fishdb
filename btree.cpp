@@ -15,6 +15,10 @@ BTree::BTree(CmpFunc cmp_func, int min_key_num):
 
 int BTree::Open(std::string dbfile)
 {
+    int ret = m_pager.Init();
+    if (ret)
+        return ret;
+
     m_root = AllocNode();
     m_root->is_leaf = true;
 	return BT_OK;
@@ -26,7 +30,14 @@ void BTree::Close()
 
 std::shared_ptr<BtNode> BTree::AllocNode()
 {
-    return m_cache.AllocNode();
+    auto page = m_pager.AllocPage();
+    return page->node;
+}
+std::shared_ptr<BtNode> BTree::DiskRead(int64_t page_no)
+{
+    std::shared_ptr<BtNode> node;
+    m_pager.ReadNode(page_no, node);
+    return node;
 }
 
 KVIter BTree::GetUpperIter(std::shared_ptr<BtNode> node, std::string &key)
@@ -252,6 +263,7 @@ void BTree::Print(std::shared_ptr<BtNode> now)
 
 void BtNode::Serialize(char *buf, int &len)
 {
+    char *sp = buf;
     buf += EncodeInt64(buf, page_no);
     buf += EncodeBool(buf, is_leaf);
     buf += EncodeInt32(buf, children.size());
@@ -263,6 +275,7 @@ void BtNode::Serialize(char *buf, int &len)
         buf += EncodeString(buf, kvs[i].key);
         buf += EncodeString(buf, kvs[i].value);
     }
+    len = buf - sp;
 }
 
 void BtNode::Parse(char *buf, int len)
