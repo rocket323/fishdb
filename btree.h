@@ -20,7 +20,6 @@ static const int BT_OK = 0;
 static const int BT_ERROR = -1;
 static const int BT_NOT_FOUND = -2;
 
-static const int BT_BLOCK_SIZE = 4096;
 static const int BT_DEFAULT_KEY_NUM = 2;
 
 class BTreeIter;
@@ -65,7 +64,7 @@ public:
     friend class Iterator;
     typedef std::function<bool(const std::string &, const std::string &)> CmpFunc;
 
-    BTree(CmpFunc cmp_func, int max_key_num = BT_DEFAULT_KEY_NUM);
+    BTree(CmpFunc cmp_func, int min_key_num = BT_DEFAULT_KEY_NUM);
     int Open(std::string dbfile);
     void Close();
 
@@ -74,12 +73,13 @@ public:
     int Del(const char *key);
 
     Iterator * NewIterator();
+
+protected:
     bool Less(std::string &a, std::string &b);
     bool Equal(const std::string &a, const std::string &b);
     KVIter LowerBound(std::shared_ptr<BtNode> node, std::string &key);
     KVIter UpperBound(std::shared_ptr<BtNode> node, std::string &key);
 
-protected:
     std::shared_ptr<BtNode> AllocNode();
     std::shared_ptr<BtNode> DiskRead(size_t page_no);
     void DiskWrite(size_t page_no, const BtNode &node);

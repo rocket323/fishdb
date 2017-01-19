@@ -76,7 +76,7 @@ std::shared_ptr<Page> Pager::AllocPage(int n)
     return page_nil;
 }
 
-int Pager::FreeNode(int64_t page_no)
+int Pager::FreePage(int64_t page_no)
 {
 }
 
@@ -116,6 +116,20 @@ int Pager::ReadNode(int64_t page_no, std::shared_ptr<BTNode> &node)
         node = iter->second->node;
     }
     return 0;
+}
+
+void Pager::Attach(std::shared_ptr<Page> page)
+{
+    page->lru_next = m_head->lru_next;
+    page->lru_prev = m_head;
+    page->lru_next->lru_prev = page.get();
+    page->lru_prev->lru_next = page.get();
+}
+
+void Pager::Detach(std::shared_ptr<Page> page)
+{
+    page->lru_prev->lru_next = page->lru_next;
+    page->lru_next->lru_prev = page->lru_prev;
 }
 
 void Pager::CachePage(int64_t page_no, std::shared_ptr<Page> page)

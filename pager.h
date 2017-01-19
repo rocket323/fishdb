@@ -48,13 +48,13 @@ public:
     void Close();
 
     int64_t AllocPage(int n = 1);
-    int FreeNode(int64_t page_no);
+    int FreePage(int64_t page_no);
     int WriteNode(int64_t page_no, std::shared_ptr<BtNode> node);
     int ReadNode(int64_t page_no, std::shared_ptr<BtNode> &node);
 
 protected:
-    void Attach(Page *page);
-    void Detach(Page *page);
+    void Attach(std::shared_ptr<Page> page);
+    void Detach(std::shared_ptr<Page> page);
     void EvitPage();
     void CachePage(int64_t page_no, std::shared_ptr<Page> page);
 

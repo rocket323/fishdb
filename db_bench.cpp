@@ -52,27 +52,6 @@ struct A
 
 int main(int argc, char **argv)
 {
-	fishdb::PageCache<A> c;
-	c.Init("data.fdb");
-
-	int p = c.TotalPages();
-	if (p < 10)
-	{
-		auto a = std::make_shared<A>(p, p + 1, p + 2);
-		int64_t page_id = c.AllocPage();
-		printf("page_id: %ld\n", page_id);
-		c.WriteNode(page_id, a);
-	}
-
-	for (int i = 1; i < c.TotalPages(); ++i)
-	{
-		std::shared_ptr<A> a;
-		c.ReadNode(i, a);
-		a->Print();
-	}
-
-	c.Close();
-
 	return 0;
 }
 
