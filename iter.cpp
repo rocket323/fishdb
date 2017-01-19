@@ -87,27 +87,53 @@ void Iterator::Seek(const char *k)
 void Iterator::Next()
 {
     assert(Valid());
-    auto &node = m_stack.back();
 
-    // 1. can still take one step in current node
-    if (m_kv_idx < node.kvs.size())
-    {
-        m_kv_idx++;
-        return;
-    }
+    auto now = m_stack.back();
+    std::string cur_key = now->kvs[m_kv_idx].key;
 
-    // find first parent that has larger key
-    while (true)
+    // 1. we are leaf
+    if (now->is_leaf)
     {
-        auto &now = m_stack.back();
-        if (m_kv_idx < now.kvs.size())
+        // 1.a leaf have more kv
+        if (m_kv_idx < now->kvs.size())
         {
             m_kv_idx++;
             return;
         }
 
-
+        // 1.b no more kv, find first parent which has more kv
+        while (m_stack.size() > 0)
+        {
+            auto nd = m_stack.back();
+            auto iter = m_btree->UpperBound(nd, cur_key);
+            if (iter != nd->kvs.end())
+            {
+                m_kv_idx = iter - nd->kvs.begin();
+                return;
+            }
+            else
+                m_stack.pop_back();
+        }
     }
+    // 2. we are inner node
+    else
+    {
+        int p = m_kv_idx + 1;
+        now = m_btree->DiskRead(now->children[p]);
+        m_stack.push_back(now);
+        while (!now->is_leaf)
+        {
+            now = m_btree->DiskRead(now->children[0]);
+            m_stack.push_back(now);
+        }
+        m_kv_idx = 0;
+        return;
+    }
+
+    // invalid if came here
+    m_valid = false;
+    m_kv_idx = -1;
+    return;
 }
 
 bool Iterator::Valid()
