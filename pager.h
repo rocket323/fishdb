@@ -8,6 +8,7 @@ namespace fishdb
 {
 
 static const int PAGE_SIZE = 512;
+static const int MAX_PAGE_CACHE = 100;
 
 class BtNode;
 
@@ -22,13 +23,13 @@ enum PageType
 {
     SINGLE = 0,
     MULTI = 1,
-    OVERFLOW = 2
 };
 
 struct PageHeader
 {
     int8_t type;
     int16_t page_cnt;
+    int32_t data_size;
     int64_t next_free;
     int64_t of_page_no;
 };
@@ -47,7 +48,7 @@ public:
     int Init(std::string fname);
     void Close();
 
-    int64_t AllocPage(int n = 1);
+    std::shared_ptr<Page> AllocPage(int n = 1);
     int FreePage(int64_t page_no);
     int WriteNode(int64_t page_no, std::shared_ptr<BtNode> node);
     int ReadNode(int64_t page_no, std::shared_ptr<BtNode> &node);
@@ -61,24 +62,8 @@ protected:
     void WritePage(int64_t page_no, std::shared_ptr<Page> page);
     void ReadPage(int64_t page_no, std::shared_ptr<Page> &page);
 
-    int64_t PageOffset(int64_t page_no)
-    {
-        return page_no * PAGE_SIZE;
-    }
-
-    int PageOccupied(int64_t node_size)
-    {
-        if (node_size <= PAGE_SIZE - sizeof(PageHeader))
-        {
-            return 1;
-        }
-        else
-        {
-            int64_t overflow_size = node_size - (PAGE_SIZE - sizeof(PageHeader));
-            int64_t overflow_pages = (overflow_size + PAGE_SIZE - 1) / PAGE_SIZE;
-            return 1 + overflow_pages;
-        }
-    }
+    int64_t PageOffset(int64_t page_no);
+    int PageOccupied(int64_t node_size);
 
 private:
     std::map<int64_t, std::shared_ptr<Page>> m_pages;

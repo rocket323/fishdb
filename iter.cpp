@@ -1,17 +1,20 @@
 #include "btree.h"
-#include "iterator.h"
+#include "iter.h"
 
-Iterator::Iterator(std::shared_ptr<BtNode> root)
+namespace fishdb
 {
-    m_root = root;
+
+Iterator::Iterator(BTree *btree)
+{
+    m_btree = btree;
     m_kv_idx = -1;
     m_valid = false;
 }
 
 void Iterator::SeekToFirst()
 {
-    auto now = m_root;
-    m_stack.push_back(m_root);
+    auto now = m_btree->m_root;
+    m_stack.push_back(now);
 
     while (!now->is_leaf)
     {
@@ -32,8 +35,8 @@ void Iterator::SeekToFirst()
 
 void Iterator::SeekToLast()
 {
-    auto now = m_root;
-    m_stack.push_back(m_root);
+    auto now = m_btree->m_root;
+    m_stack.push_back(now);
 
     while (!now->is_leaf)
     {
@@ -55,7 +58,7 @@ void Iterator::SeekToLast()
 void Iterator::Seek(const char *k)
 {
     std::string key = k;
-    auto now = m_root;
+    auto now = m_btree->m_root;
 
     bool found_upper = false;
     while (now != NULL)
@@ -95,7 +98,7 @@ void Iterator::Next()
     if (now->is_leaf)
     {
         // 1.a leaf have more kv
-        if (m_kv_idx < now->kvs.size())
+        if (m_kv_idx < (int)now->kvs.size())
         {
             m_kv_idx++;
             return;
@@ -145,13 +148,15 @@ std::string Iterator::Key()
 {
     assert(Valid());
     auto &node = m_stack.back();
-    return node.kvs[m_kv_idx].key;
+    return node->kvs[m_kv_idx].key;
 }
 
 std::string Iterator::Value()
 {
     assert(Valid());
     auto &node = m_stack.back();
-    return node.kvs[m_kv_idx].value;
+    return node->kvs[m_kv_idx].value;
+}
+
 }
 

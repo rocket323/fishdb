@@ -12,6 +12,7 @@
 #include <sstream>
 #include <inttypes.h>
 #include "pager.h"
+#include "iter.h"
 
 namespace fishdb 
 {
@@ -64,7 +65,7 @@ public:
     friend class Iterator;
     typedef std::function<bool(const std::string &, const std::string &)> CmpFunc;
 
-    BTree(CmpFunc cmp_func, int min_key_num = BT_DEFAULT_KEY_NUM);
+    BTree(CmpFunc cmp_func = DefaultCmp(), int min_key_num = BT_DEFAULT_KEY_NUM);
     int Open(std::string dbfile);
     void Close();
 
@@ -81,7 +82,7 @@ protected:
     KVIter UpperBound(std::shared_ptr<BtNode> node, std::string &key);
 
     std::shared_ptr<BtNode> AllocNode();
-    std::shared_ptr<BtNode> DiskRead(size_t page_no);
+    std::shared_ptr<BtNode> DiskRead(int64_t page_no);
     void DiskWrite(size_t page_no, const BtNode &node);
 
     void Insert(std::shared_ptr<BtNode> now, std::shared_ptr<BtNode> parent,

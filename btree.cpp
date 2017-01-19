@@ -15,7 +15,7 @@ BTree::BTree(CmpFunc cmp_func, int min_key_num):
 
 int BTree::Open(std::string dbfile)
 {
-    int ret = m_pager.Init();
+    int ret = m_pager.Init(dbfile);
     if (ret)
         return ret;
 
@@ -26,6 +26,12 @@ int BTree::Open(std::string dbfile)
 
 void BTree::Close()
 {
+}
+
+Iterator * BTree::NewIterator()
+{
+    Iterator *iter = new Iterator(this);
+    return iter;
 }
 
 std::shared_ptr<BtNode> BTree::AllocNode()
@@ -135,8 +141,8 @@ void BTree::Insert(std::shared_ptr<BtNode> now, std::shared_ptr<BtNode> parent, 
     }
 	assert(upper_idx < (int)parent->children.size());
     parent->kvs.insert(parent->kvs.begin() + upper_idx, now->kvs[mid]);
-    parent->children[upper_idx] = left->offset;
-    parent->children.insert(parent->children.begin() + upper_idx + 1, right->offset);
+    parent->children[upper_idx] = left->page_no;
+    parent->children.insert(parent->children.begin() + upper_idx + 1, right->page_no);
 }
 
 int BTree::Del(const char *k)
@@ -268,7 +274,7 @@ std::string BTree::Childen(BtNode *node)
 
 void BTree::Print(std::shared_ptr<BtNode> now)
 {
-    printf("%"PRId64", %s -> %s\n", now->offset, Keys(now.get()).c_str(), Childen(now.get()).c_str());
+    printf("%" PRId64 ", %s -> %s\n", now->page_no, Keys(now.get()).c_str(), Childen(now.get()).c_str());
     for (size_t i = 0; i < now->children.size(); ++i)
     {
         auto child = DiskRead(now->children[i]);
