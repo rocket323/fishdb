@@ -21,8 +21,9 @@ struct DBHeader
 
 enum PageType
 {
-    SINGLE = 0,
-    MULTI = 1,
+    SINGLE_PAGE = 0,
+    MULTI_PGAE = 1,
+    OF_PAGE = 2,
 };
 
 struct PageHeader
@@ -48,19 +49,23 @@ public:
     int Init(std::string fname);
     void Close();
 
-    std::shared_ptr<Page> AllocPage(int n = 1);
-    int FreePage(int64_t page_no);
+    std::shared_ptr<BtNode> AllocNode();
+    int FreeNode(std::shared_ptr<BtNode> node);
     int WriteNode(int64_t page_no, std::shared_ptr<BtNode> node);
-    int ReadNode(int64_t page_no, std::shared_ptr<BtNode> &node);
+    int ReadPage(int64_t page_no, std::shared_ptr<Page> &page);
 
 protected:
+
+    std::shared_ptr<Page> NewSinglePage(int64_t page_no);
+
     void Attach(std::shared_ptr<Page> page);
     void Detach(std::shared_ptr<Page> page);
     void EvitPage();
     void CachePage(int64_t page_no, std::shared_ptr<Page> page);
+    void TouchPage(std::shared_ptr<Page> page);
 
-    void WritePage(int64_t page_no, std::shared_ptr<Page> page);
-    void ReadPage(int64_t page_no, std::shared_ptr<Page> &page);
+    void WriteFilePage(int64_t page_no, std::shared_ptr<Page> page);
+    void ReadFilePage(int64_t page_no, std::shared_ptr<Page> &page);
 
     int64_t PageOffset(int64_t page_no);
     int PageOccupied(int64_t node_size);
