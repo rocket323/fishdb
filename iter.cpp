@@ -18,7 +18,7 @@ void Iterator::SeekToFirst()
 
     while (!now->is_leaf)
     {
-        now = m_btree->DiskRead(now->children[0]);
+        now = m_btree->ReadPage(now->children[0]);
         m_stack.push_back(now);
     }
     if (now->kvs.size() > 0)
@@ -40,7 +40,7 @@ void Iterator::SeekToLast()
 
     while (!now->is_leaf)
     {
-        now = m_btree->DiskRead(now->children.back());
+        now = m_btree->ReadPage(now->children.back());
         m_stack.push_back(now);
     }
     if (now->kvs.size() > 0)
@@ -70,11 +70,11 @@ void Iterator::Seek(const char *k)
         {
             found_upper = true;
             m_kv_idx = p;
-            now = m_btree->DiskRead(now->children[p]);
+            now = m_btree->ReadPage(now->children[p]);
         }
         else if (!now->is_leaf)
         {
-            now = m_btree->DiskRead(now->children[p]);
+            now = m_btree->ReadPage(now->children[p]);
         }
         else
         {
@@ -122,11 +122,11 @@ void Iterator::Next()
     else
     {
         int p = m_kv_idx + 1;
-        now = m_btree->DiskRead(now->children[p]);
+        now = m_btree->ReadPage(now->children[p]);
         m_stack.push_back(now);
         while (!now->is_leaf)
         {
-            now = m_btree->DiskRead(now->children[0]);
+            now = m_btree->ReadPage(now->children[0]);
             m_stack.push_back(now);
         }
         m_kv_idx = 0;

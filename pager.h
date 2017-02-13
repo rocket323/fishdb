@@ -1,9 +1,11 @@
 #ifndef PAGER_H_
 #define PAGER_H_
 
+#include <map>
 #include <string>
 #include <vector>
 #include <memory>
+#include "format.h"
 
 namespace fishdb
 {
@@ -41,16 +43,16 @@ struct PageHeader
     void Serialize(char *buf, int32_t &size)
     {
         char *sp = buf;
-        buf += EncodeInt64(page_no);
-        buf += EncodeInt8(type);
-        buf += EncodeInt64(next_free);
-        buf += EncodeInt64(of_page_no);
-        buf += EncodeInt32(data_size);
-        buf += EncodeInt16(page_cnt);
-        buf += EncodeInt8(is_leaf);
+        buf += EncodeInt64(buf, page_no);
+        buf += EncodeInt8(buf, type);
+        buf += EncodeInt64(buf, next_free);
+        buf += EncodeInt64(buf, of_page_no);
+        buf += EncodeInt32(buf, data_size);
+        buf += EncodeInt16(buf, page_cnt);
+        buf += EncodeInt8(buf, is_leaf);
         size = buf - sp;
     }
-    void Parse(const char *buf, int32_t &size)
+    void Parse(char *buf, int32_t &size)
     {
         char *sp = buf;
         buf += DecodeInt64(buf, page_no);
@@ -78,7 +80,7 @@ struct KV
         key(_key), value(_value) {}
 };
 typedef std::vector<KV>::iterator KVIter;
-static const int PH_SIZE = sizeof(Pageheader);
+static const int PH_SIZE = sizeof(PageHeader);
 static const int PAGE_CAPA = PAGE_SIZE - sizeof(PageHeader);
 
 struct MemPage
@@ -112,7 +114,7 @@ struct MemPage
         }
         size = buf - sp;
     }
-    void Parse(const char *buf, int32_t &size)
+    void Parse(char *buf, int32_t &size)
     {
         char *sp = buf;
         int32_t header_size = 0;
@@ -144,11 +146,11 @@ class Pager
 {
 public:
     int Init(std::string file);
-    int Close();
+    void Close();
 
     std::shared_ptr<MemPage> GetRoot();
     void SetRoot(int64_t root_page_no);
-    std::shared_ptr<MemPage> NewPage(PageType type = DATA_PAGE);
+    std::shared_ptr<MemPage> NewPage(PageType type = TREE_PAGE);
     std::shared_ptr<MemPage> GetPage(int64_t page_no, bool stick = false);
     void FlushPage(std::shared_ptr<MemPage> mp);
     int FreePage(std::shared_ptr<MemPage> mp);

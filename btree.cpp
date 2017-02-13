@@ -1,20 +1,22 @@
+#include "pager.h"
 #include "btree.h"
 
 namespace fishdb
 {
+std::shared_ptr<MemPage> nil;
 
-BTree::BTree(CmpFunc cmp_func, int min_key_num):
-    m_min_key_num(min_key_num), m_cmp_func(cmp_func)
+BTree * BTree::Open(std::string dbfile,
+        CmpFunc cmp_func, int min_key_num)
 {
-}
+    BTree *bt = new BTree();
+    bt->m_cmp_func = cmp_func;
+    bt->m_min_key_num = min_key_num;
 
-int BTree::Open(std::string dbfile)
-{
-    int ret = m_pager.Init(dbfile);
+    int ret = bt->m_pager.Init(dbfile);
     if (ret)
-        return ret;
-    m_root = m_pager.GetRoot();
-    return BT_OK;
+        return NULL;
+    bt->m_root = bt->m_pager.GetRoot();
+    return bt;
 }
 
 void BTree::Close()
@@ -28,7 +30,7 @@ Iterator * BTree::NewIterator()
     return iter;
 }
 
-std::shared<MemPage> BTree::ReadPage(int64_t page_no)
+std::shared_ptr<MemPage> BTree::ReadPage(int64_t page_no)
 {
     return m_pager.GetPage(page_no, true);
 }
@@ -43,7 +45,7 @@ bool BTree::Equal(const std::string &a, const std::string &b)
     return !m_cmp_func(a, b) && !m_cmp_func(b, a);
 }
 
-KVIter BTree::LowerBound(std::shared_ptr<MemPage> mp, std::string &key)
+KVIter BTree::LowerBound(std::shared_ptr<MemPage> mp, const std::string &key)
 {
     for (auto iter = mp->kvs.begin(); iter != mp->kvs.end(); ++iter)
     {
@@ -53,7 +55,7 @@ KVIter BTree::LowerBound(std::shared_ptr<MemPage> mp, std::string &key)
     return mp->kvs.end();
 }
 
-KVIter BTree::UpperBound(std::shared_ptr<MemPage> mp, std::string &key)
+KVIter BTree::UpperBound(std::shared_ptr<MemPage> mp, const std::string &key)
 {
     for (auto iter = mp->kvs.begin(); iter != mp->kvs.end(); ++iter)
     {
@@ -81,7 +83,7 @@ int BTree::Del(const char *k)
     return Del(key);
 }
 
-int Pager::Get(const std::string &key, std::string &data)
+int BTree::Get(const std::string &key, std::string &data)
 {
     auto now = m_root;
     while (now != NULL)
@@ -101,14 +103,14 @@ int Pager::Get(const std::string &key, std::string &data)
     return BT_ERROR;
 }
 
-int Pager::Put(const std::string &key, const char *data)
+int BTree::Put(const std::string &key, const char *data)
 {
     Insert(m_root, nil, 0, key, data);
     return BT_OK;
 }
 
 void BTree::Insert(std::shared_ptr<MemPage> now, std::shared_ptr<MemPage> parent,
-        int upper_idx, std::string &key, std::string &data)
+        int upper_idx, const std::string &key, const std::string &data)
 {
     auto iter = LowerBound(now, key);
     size_t p = iter - now->kvs.begin();
@@ -117,7 +119,7 @@ void BTree::Insert(std::shared_ptr<MemPage> now, std::shared_ptr<MemPage> parent
     else if (!now->is_leaf)
         Insert(ReadPage(now->children[p]), now, p, key, data);
     else
-        now->insert(iter, KV(key, data));
+        now->kvs.insert(iter, KV(key, data));
     if ((int)now->kvs.size() <= 2 * m_min_key_num) return;
 
     //split full
@@ -145,17 +147,17 @@ void BTree::Insert(std::shared_ptr<MemPage> now, std::shared_ptr<MemPage> parent
     }
 	assert(upper_idx < (int)parent->children.size());
     parent->kvs.insert(parent->kvs.begin() + upper_idx, now->kvs[mid]);
-    parent->children[upper_idx] = left->page_no;
-    parent->children.insert(parent->children.begin() + upper_idx + 1, right->page_no);
+    parent->children[upper_idx] = left->header.page_no;
+    parent->children.insert(parent->children.begin() + upper_idx + 1, right->header.page_no);
 }
 
-int Pager::Del(const std::string &key)
+int BTree::Del(const std::string &key)
 {
     return Delete(m_root, nil, -1, key);
 }
 
 int BTree::Delete(std::shared_ptr<MemPage> now, std::shared_ptr<MemPage> parent,
-        int child_idx, std::string &key)
+        int child_idx, const std::string &key)
 {
     auto iter = LowerBound(now, key);
     size_t p = iter - now->kvs.begin();
@@ -267,7 +269,7 @@ std::string BTree::Childen(MemPage *mp)
 {
     std::ostringstream out;
     out << "[";
-    for (size_t i = 0; i < node->children.size(); ++i)
+    for (size_t i = 0; i < mp->children.size(); ++i)
     {
         out << mp->children[i] << ((i == mp->children.size() - 1) ? "" : " ");
     }
@@ -278,7 +280,7 @@ std::string BTree::Childen(MemPage *mp)
 
 void BTree::Print(std::shared_ptr<MemPage> mp)
 {
-    printf("%" PRId64 ", %s -> %s\n", mp->page_no, Keys(mp.get()).c_str(), Childen(mp.get()).c_str());
+    printf("%" PRId64 ", %s -> %s\n", mp->header.page_no, Keys(mp.get()).c_str(), Childen(mp.get()).c_str());
     for (size_t i = 0; i < mp->children.size(); ++i)
     {
         auto child = ReadPage(mp->children[i]);

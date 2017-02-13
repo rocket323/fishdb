@@ -8,7 +8,7 @@ namespace fishdb
 {
 
 class BTree;
-class BtNode;
+struct MemPage;
 
 class Iterator
 {
@@ -26,7 +26,7 @@ public:
 
 private:
     BTree *m_btree;
-    std::vector<std::shared_ptr<BtNode>> m_stack;
+    std::vector<std::shared_ptr<MemPage>> m_stack;
     int m_kv_idx;
     bool m_valid;
 };

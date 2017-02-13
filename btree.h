@@ -45,8 +45,9 @@ public:
     friend class Iterator;
     typedef std::function<bool(const std::string &, const std::string &)> CmpFunc;
 
-    BTree(CmpFunc cmp_func = DefaultCmp(), int min_key_num = BT_DEFAULT_KEY_NUM);
-    int Open(std::string dbfile);
+    static BTree * Open(std::string dbfile,
+            CmpFunc cmp_func = DefaultCmp(),
+            int min_key_num = BT_DEFAULT_KEY_NUM);
     void Close();
 
     int Get(const char *key, std::string &data);
@@ -58,16 +59,16 @@ public:
     Iterator *NewIterator();
 
 protected:
-    std::shared<MemPage> ReadPage(int64_t page_no);
+    std::shared_ptr<MemPage> ReadPage(int64_t page_no);
     bool Less(std::string &a, std::string &b);
     bool Equal(const std::string &a, const std::string &b);
-    KVIter LowerBound(std::shared_ptr<MemPage> mp, std::string &key);
-    KVIter UpperBound(std::shared_ptr<MemPage> mp, std::string &key);
+    KVIter LowerBound(std::shared_ptr<MemPage> mp, const std::string &key);
+    KVIter UpperBound(std::shared_ptr<MemPage> mp, const std::string &key);
 
     void Insert(std::shared_ptr<MemPage> now, std::shared_ptr<MemPage> parent,
-            int upper_idx, std::string &key, std::string &data);
+            int upper_idx, const std::string &key, const std::string &data);
     int Delete(std::shared_ptr<MemPage> now, std::shared_ptr<MemPage> parent,
-            int child_idx, std::string &key);
+            int child_idx, const std::string &key);
     void Maintain(std::shared_ptr<MemPage> now, std::shared_ptr<MemPage> parent, int child_idx);
 
 	std::string Keys(MemPage *mp);

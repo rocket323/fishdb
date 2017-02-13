@@ -1,5 +1,3 @@
-#include "btree.h"
-#include "pager.h"
 
 /*
  * benchmarks:

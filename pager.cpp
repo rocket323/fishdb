@@ -1,3 +1,5 @@
+#include <unistd.h>
+#include <assert.h>
 #include "pager.h"
 
 namespace fishdb
@@ -13,7 +15,7 @@ int Pager::Init(std::string file)
     m_head->lru_next = m_tail;
     m_tail->lru_prev = m_head;
 
-    m_fiile = fopen(file.c_str(), "rb+");
+    m_file = fopen(file.c_str(), "rb+");
     if (m_file == NULL)
         m_file = fopen(file.c_str(), "wb+");
     assert(m_file);
@@ -40,7 +42,7 @@ int Pager::Init(std::string file)
     return 0;
 }
 
-int Pager::Close()
+void Pager::Close()
 {
     fseek(m_file, 0, SEEK_SET);
     fwrite((void *)m_db_header, sizeof(DBHeader), 1, m_file);
@@ -53,7 +55,7 @@ int Pager::Close()
 
 std::shared_ptr<MemPage> Pager::NewPage(PageType type)
 {
-    std::shared<MemPage> mp;
+    std::shared_ptr<MemPage> mp;
     if (m_db_header->free_list != -1)
     {
         mp = GetPage(m_db_header->free_list);
@@ -88,7 +90,7 @@ void Pager::SetRoot(int64_t root_page_no)
 std::shared_ptr<MemPage> Pager::GetRoot()
 {
     if (m_db_header->root_page_no == -1)
-        return NewPage(LEAF_PAGE);
+        return NewPage(TREE_PAGE);
     else
         return GetPage(m_db_header->root_page_no);
 }
@@ -148,6 +150,7 @@ std::shared_ptr<MemPage> Pager::GetPage(int64_t page_no, bool stick)
 
 void Pager::FlushPage(std::shared_ptr<MemPage> mp)
 {
+    int64_t page_no = mp->header.page_no;
     auto p = GetPage(page_no);
     memset(buf, 0, sizeof buf);
     int32_t size = 0;
@@ -206,19 +209,20 @@ void Pager::FlushPage(std::shared_ptr<MemPage> mp)
 int Pager::FreePage(std::shared_ptr<MemPage> mp)
 {
     auto header = mp->header;
-    int64_t of_page_no = header->of_page_no;
-    header->type = FREE_PAGE;
-    header->of_page_no = -1;
-    header->data_size = 0;
-    header->page_cnt = 1;
-    header->next_free = m_db_header->free_list;
-    m_db_header->free_list = header->page_no;
+    int64_t of_page_no = header.of_page_no;
+    header.type = FREE_PAGE;
+    header.of_page_no = -1;
+    header.data_size = 0;
+    header.page_cnt = 1;
+    header.next_free = m_db_header->free_list;
+    m_db_header->free_list = header.page_no;
 
     if (of_page_no > 0)
     {
         auto p = GetPage(of_page_no);
         FreePage(p);
     }
+    return 0;
 }
 
 void Pager::Prune(int size_limit)
@@ -228,7 +232,7 @@ void Pager::Prune(int size_limit)
     {
         auto mp = now->lru_prev;
         if (mp == now) break;
-        if (m_pages.size() <= size_limit) break;
+        if ((int)m_pages.size() <= size_limit) break;
         now = mp;
         if (mp->stick) continue;
 
@@ -237,7 +241,7 @@ void Pager::Prune(int size_limit)
         FreePage(_mp);
 
         Detach(_mp);
-        mp_pages.erase(mp->header.page_no);
+        m_pages.erase(mp->header.page_no);
     }
 }
 
