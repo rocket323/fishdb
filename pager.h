@@ -1,80 +1,99 @@
 #ifndef PAGER_H_
 #define PAGER_H_
-#include <stdint.h>
+
+#include <string>
+#include <vector>
 #include <memory>
-#include <map>
 
 namespace fishdb
 {
 
 static const int PAGE_SIZE = 512;
-static const int MAX_PAGE_CACHE = 100;
+static const int MAX_PAGE_CACHE = 1000;
 
-class BtNode;
+enum PageType
+{
+    HEADER_PAGE = 0,
+    BRANCH_PAGE = 1,
+    LEAF_PAGE = 2,
+    OF_PAGE = 3,
+    FREE_PAGE = 4,
+};
 
 struct DBHeader
 {
     int64_t free_list;
     int32_t total_pages;
-    int32_t page_size;
-};
-
-enum PageType
-{
-    SINGLE_PAGE = 0,
-    MULTI_PGAE = 1,
-    OF_PAGE = 2,
+    int32_t of_pages;
+    int page_size;
+    int64_t root_page_no;
 };
 
 struct PageHeader
 {
+    int64_t page_no;
     int8_t type;
-    int16_t page_cnt;
-    int32_t data_size;
     int64_t next_free;
     int64_t of_page_no;
+    int32_t data_size;
+    int16_t page_cnt;
 };
 
 struct Page
 {
     PageHeader header;
-    std::shared_ptr<BtNode> node;
-    Page *lru_prev;
-    Page *lru_next;
+    char data[PAGE_SIZE];
+};
+
+struct KV
+{
+    std::string key;
+    std::string value;
+    KV(const std::string &_key, const std::string &_value):
+        key(_key), value(_value) {}
+};
+typedef std::vector<KV>::iterator KVIter;
+
+struct MemPage
+{
+    PageHeader header;
+    std::vector<int64_t> children;
+    std::vector<KV> kvs;
+    std::string data;
+    bool stick;
+    bool is_leaf;
+
+    MemPage *lru_next;
+    MemPage *lru_prev;
+
+    void Serialize(char *buf, int32_t &size);
+    void Parse(const char *buf, int32_t size);
 };
 
 class Pager
 {
 public:
-    int Init(std::string fname);
-    void Close();
+    int Init(std::string file);
+    int Close();
 
-    std::shared_ptr<BtNode> AllocNode();
-    int FreeNode(std::shared_ptr<BtNode> node);
-    int WriteNode(int64_t page_no, std::shared_ptr<BtNode> node);
-    int ReadPage(int64_t page_no, std::shared_ptr<Page> &page);
+    std::shared_ptr<MemPage> NewPage(PageType type);
+    std::shared_ptr<MemPage> GetRootPage();
+    std::shared_ptr<MemPage> GetPage(int64_t page_no, bool stick = false);
+    void FlushPage(int64_t page_no, std::shared_ptr<MemPage> mp);
+    int FreePage(std::shared_ptr<MemPage> mp);
 
 protected:
-
-    std::shared_ptr<Page> NewSinglePage(int64_t page_no);
-
-    void Attach(std::shared_ptr<Page> page);
-    void Detach(std::shared_ptr<Page> page);
-    void EvitPage();
-    void CachePage(int64_t page_no, std::shared_ptr<Page> page);
-    void TouchPage(std::shared_ptr<Page> page);
-
-    void WriteFilePage(int64_t page_no, std::shared_ptr<Page> page);
-    void ReadFilePage(int64_t page_no, std::shared_ptr<Page> &page);
-
-    int64_t PageOffset(int64_t page_no);
-    int PageOccupied(int64_t node_size);
+    void Prune(int size_limit = MAX_PAGE_CACHE);
+    void Attach(std::shared_ptr<MemPage> mp);
+    void Detach(std::shared_ptr<MemPage> mp);
+    void TouchPage(std::shared_ptr<MemPage> mp);
+    void CachePage(std::shared_ptr<MemPage> mp);
 
 private:
-    std::map<int64_t, std::shared_ptr<Page>> m_pages;
+    std::map<int64_t, std::shared_ptr<MemPage>> m_pages;
     DBHeader *m_db_header;
-    Page *m_head;
-    Page *m_tail;
+    MemPage *m_head;
+    MemPage *m_tail;
     FILE *m_file;
     int m_file_size;
 };

@@ -14,7 +14,7 @@
 #include "pager.h"
 #include "iter.h"
 
-namespace fishdb
+namespace fishdb 
 {
 
 static const int BT_OK = 0;
@@ -37,6 +37,26 @@ struct DefaultCmp
     }
 };
 
+struct KV
+{
+    std::string key;
+    std::string value;
+    KV(const std::string &_key, const std::string &_value):
+        key(_key), value(_value) {}
+};
+typedef std::vector<KV>::iterator KVIter;
+
+struct BtNode
+{
+    int64_t page_no;
+    bool is_leaf;
+    std::vector<int64_t> children;
+    std::vector<KV> kvs;
+
+    void Serialize(char *buf, int &len);
+    void Parse(char *buf, int len);
+};
+
 class Iterator;
 
 class BTree
@@ -52,29 +72,36 @@ public:
     int Get(const char *key, std::string &data);
     int Put(const char *key, const char *data);
     int Del(const char *key);
-    Iterator *NewIterator();
+
+    Iterator * NewIterator();
 
 protected:
     bool Less(std::string &a, std::string &b);
     bool Equal(const std::string &a, const std::string &b);
-    KVIter LowerBound(std::shared_ptr<MemPage> mp, std::string &key);
-    KVIter UpperBound(std::shared_ptr<MemPage> mp, std::string &key);
+    KVIter LowerBound(std::shared_ptr<BtNode> node, std::string &key);
+    KVIter UpperBound(std::shared_ptr<BtNode> node, std::string &key);
 
-    void Insert(std::shared_ptr<MemPage> now, std::shared_ptr<MemPage> parent,
+    std::shared_ptr<BtNode> AllocNode();
+    std::shared_ptr<BtNode> DiskRead(int64_t page_no);
+    void DiskWrite(size_t page_no, const BtNode &node);
+
+    void Insert(std::shared_ptr<BtNode> now, std::shared_ptr<BtNode> parent,
             int upper_idx, std::string &key, std::string &data);
-    int Delete(std::shared_ptr<MemPage> now, std::shared_ptr<MemPage> parent,
+    int Delete(std::shared_ptr<BtNode> now, std::shared_ptr<BtNode> parent,
             int child_idx, std::string &key);
-    void Maintain(std::shared_ptr<MemPage> now, std::shared_ptr<MemPage> parent, int child_idx);
+    void Maintain(std::shared_ptr<BtNode> now, std::shared_ptr<BtNode> parent, int child_idx);
 
-	std::string Keys(MemPage *mp);
-	std::string Childen(MemPage *mp);
-	void Print(std::shared_ptr<MemPage> now);
+	std::string Keys(BtNode *node);
+	std::string Childen(BtNode *node);
+	void Print(std::shared_ptr<BtNode> now);
 
 private:
     Pager m_pager;
     int m_min_key_num;
     CmpFunc m_cmp_func;
-    std::shared_ptr<MemPage> m_root;
+
+public:
+    std::shared_ptr<BtNode> m_root;
 };
 
 }
