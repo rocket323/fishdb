@@ -37,6 +37,27 @@ struct PageHeader
     int64_t of_page_no;
     int32_t data_size;
     int16_t page_cnt;
+
+    void Serialize(char *buf, int32_t &size)
+    {
+        char *sp = buf;
+        buf += EncodeInt64(page_no);
+        buf += EncodeInt8(type);
+        buf += EncodeInt64(next_free);
+        buf += EncodeInt64(of_page_no);
+        buf += EncodeInt32(data_size);
+        buf += EncodeInt16(page_cnt);
+        size = buf - sp;
+    }
+    void Parse(const char *buf, int32_t &size)
+    {
+        buf += DecodeInt64(buf, page_no);
+        buf += DecodeInt8(buf, type);
+        buf += DecodeInt64(buf, next_free);
+        buf += DecodeInt64(buf, of_page_no);
+        buf += DecodeInt32(buf, data_size);
+        buf += DecodeInt16(buf, page_cnt);
+    }
 };
 
 struct Page
@@ -66,8 +87,49 @@ struct MemPage
     MemPage *lru_next;
     MemPage *lru_prev;
 
-    void Serialize(char *buf, int32_t &size);
-    void Parse(const char *buf, int32_t size);
+    void Serialize(char *buf, int32_t &size)
+    {
+        char *sp = buf;
+        int32_t header_size = 0;
+        header.Serialize(buf, header_size);
+        buf += header_size;
+
+        buf += EncodeInt32(buf, children.size());
+        for (size_t i = 0; i < children.size(); ++i)
+            buf += EncodeInt64(buf, children[i]);
+        buf += EncodeInt32(buf, kvs.size());
+        for (size_t i = 0; i < kvs.size(); ++i)
+        {
+            buf += EncodeString(buf, kvs[i].key);
+            buf += EncodeString(buf, kvs[i].value);
+        }
+        size = buf - sp;
+    }
+    void Parse(const char *buf, int32_t &size)
+    {
+        char *sp = buf;
+        int32_t header_size = 0;
+        header.Parse(buf, header_size);
+        buf += header_size;
+
+        int32_t num;
+        buf += DecodeInt32(buf, num);
+        for (int i = 0; i < num; ++i)
+        {
+            int64_t c;
+            buf += DecodeInt64(buf, c);
+            children.push_back(c);
+        }
+        buf += DecodeInt32(buf, num);
+        for (int i = 0; i < num; ++i)
+        {
+            std::string k, v;
+            buf += DecodeString(buf, k);
+            buf += DecodeString(buf, v);
+            kvs.push_back(KV(k, v));
+        }
+        size = buf - sp;
+    }
 };
 
 class Pager
@@ -78,6 +140,7 @@ public:
 
     std::shared_ptr<MemPage> NewPage(PageType type);
     std::shared_ptr<MemPage> GetRootPage();
+    void SetRoot(int64_t root_page_no);
     std::shared_ptr<MemPage> GetPage(int64_t page_no, bool stick = false);
     void FlushPage(int64_t page_no, std::shared_ptr<MemPage> mp);
     int FreePage(std::shared_ptr<MemPage> mp);

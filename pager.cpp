@@ -76,6 +76,11 @@ std::shared_ptr<MemPage> Pager::NewPage(PageType type)
     return pageNil;
 }
 
+void Pager::SetRoot(int64_t root_page_no)
+{
+    m_db_header->root_page_no = root_page_no;
+}
+
 std::shared_ptr<MemPage> Pager::GetRootPage()
 {
     if (m_db_header->root_page_no == -1)

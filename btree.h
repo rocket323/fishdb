@@ -52,6 +52,9 @@ public:
     int Get(const char *key, std::string &data);
     int Put(const char *key, const char *data);
     int Del(const char *key);
+    int Get(const std::string &key, std::string &data);
+    int Put(const std::string &key, const char *data);
+    int Del(const std::string &key);
     Iterator *NewIterator();
 
 protected:
