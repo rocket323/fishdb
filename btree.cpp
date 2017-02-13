@@ -13,7 +13,7 @@ int BTree::Open(std::string dbfile)
     int ret = m_pager.Init(dbfile);
     if (ret)
         return ret;
-    m_root = m_pager.GetRootPage();
+    m_root = m_pager.GetRoot();
     return BT_OK;
 }
 
@@ -32,7 +32,6 @@ std::shared<MemPage> BTree::ReadPage(int64_t page_no)
 {
     return m_pager.GetPage(page_no, true);
 }
-
 
 bool BTree::Less(std::string &a, std::string &b)
 {
