@@ -58,6 +58,7 @@ public:
     Iterator *NewIterator();
 
 protected:
+    std::shared<MemPage> ReadPage(int64_t page_no);
     bool Less(std::string &a, std::string &b);
     bool Equal(const std::string &a, const std::string &b);
     KVIter LowerBound(std::shared_ptr<MemPage> mp, std::string &key);
