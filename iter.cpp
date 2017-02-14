@@ -98,7 +98,7 @@ void Iterator::Next()
     if (now->is_leaf)
     {
         // 1.a leaf have more kv
-        if (m_kv_idx < (int)now->kvs.size())
+        if (m_kv_idx + 1 < (int)now->kvs.size())
         {
             m_kv_idx++;
             return;
@@ -141,7 +141,8 @@ void Iterator::Next()
 
 bool Iterator::Valid()
 {
-    return m_valid;
+    if (m_stack.size() == 0) return false;
+    return m_valid && m_kv_idx >= 0 && m_kv_idx < (int)m_stack.back()->kvs.size();
 }
 
 std::string Iterator::Key()

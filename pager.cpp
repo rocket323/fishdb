@@ -1,3 +1,4 @@
+#include <cstring>
 #include <unistd.h>
 #include <assert.h>
 #include "pager.h"
@@ -13,6 +14,8 @@ int Pager::Init(std::string file)
     m_head = new MemPage();
     m_tail = new MemPage();
     m_head->lru_next = m_tail;
+    m_head->lru_prev = m_tail;
+    m_tail->lru_next = m_head;
     m_tail->lru_prev = m_head;
 
     m_file = fopen(file.c_str(), "rb+");
@@ -125,6 +128,7 @@ std::shared_ptr<MemPage> Pager::GetPage(int64_t page_no, bool stick)
             while (of_page_no > 0)
             {
                 int offset = header->of_page_no;
+                assert(offset + PAGE_SIZE <= m_file_size);
                 fseek(m_file, offset, SEEK_SET);
                 char tmp_page[PAGE_SIZE];
                 fread((void *)tmp_page, PAGE_SIZE, 1, m_file);
@@ -148,6 +152,17 @@ std::shared_ptr<MemPage> Pager::GetPage(int64_t page_no, bool stick)
     return pageNil;
 }
 
+void Pager::WriteFile(char *buf, const int len, int64_t offset)
+{
+    if (offset + len > m_file_size)
+    {
+        ftruncate(fileno(m_file), offset + len + PAGE_SIZE);
+        m_file_size = offset + len + PAGE_SIZE;
+    }
+    fseek(m_file, offset, SEEK_SET);
+    fwrite((void *)buf, len, 1, m_file);
+}
+
 void Pager::FlushPage(std::shared_ptr<MemPage> mp)
 {
     int64_t page_no = mp->header.page_no;
@@ -165,8 +180,7 @@ void Pager::FlushPage(std::shared_ptr<MemPage> mp)
         for (int i = 0; i < page_cnt - 1 && of_page_no > 0; ++i)
         {
             int64_t offset = of_page_no * PAGE_SIZE + PH_SIZE;
-            fseek(m_file, offset, SEEK_SET);
-            fwrite((void *)(buf + base), PAGE_CAPA, 1, m_file);
+            WriteFile(buf + base, PAGE_CAPA, offset);
             base += PAGE_CAPA;
             auto of_mp = GetPage(of_page_no);
             of_page_no = of_mp->header.of_page_no;
@@ -192,9 +206,8 @@ void Pager::FlushPage(std::shared_ptr<MemPage> mp)
             of_mp->header.of_page_no = last_of_page;
 
             int64_t offset = of_mp->header.page_no * PAGE_SIZE;
-            fseek(m_file, offset, SEEK_SET);
-            fwrite((void *)&of_mp->header, PH_SIZE, 1, m_file);
-            fwrite((void *)(buf + base), PAGE_CAPA, 1, m_file);
+            WriteFile((char *)&of_mp->header, PH_SIZE, offset);
+            WriteFile(buf + base, PAGE_CAPA, offset + PH_SIZE);
             last_of_page = of_mp->header.page_no;
         }
 
@@ -236,24 +249,28 @@ void Pager::Prune(int size_limit)
         now = mp;
         if (mp->stick) continue;
 
-        auto _mp = std::make_shared<MemPage>();
-        FlushPage(_mp);
-        FreePage(_mp);
-
-        Detach(_mp);
-        m_pages.erase(mp->header.page_no);
+        Detach(mp);
+        int64_t page_no = mp->header.page_no;
+        auto iter = m_pages.find(page_no);
+        if (iter != m_pages.end())
+        {
+            auto &_mp = iter->second;
+            FlushPage(_mp);
+            FreePage(_mp);
+            m_pages.erase(iter);
+        }
     }
 }
 
-void Pager::Attach(std::shared_ptr<MemPage> mp)
+void Pager::Attach(MemPage *mp)
 {
     mp->lru_next = m_head->lru_next;
     mp->lru_prev = m_head;
-    mp->lru_next->lru_prev = mp.get();
-    mp->lru_prev->lru_next = mp.get();
+    mp->lru_next->lru_prev = mp;
+    mp->lru_prev->lru_next = mp;
 }
 
-void Pager::Detach(std::shared_ptr<MemPage> mp)
+void Pager::Detach(MemPage *mp)
 {
     mp->lru_prev->lru_next = mp->lru_next;
     mp->lru_next->lru_prev = mp->lru_prev;
@@ -261,16 +278,16 @@ void Pager::Detach(std::shared_ptr<MemPage> mp)
 
 void Pager::TouchPage(std::shared_ptr<MemPage> mp)
 {
-    Detach(mp);
-    Attach(mp);
+    Detach(mp.get());
+    Attach(mp.get());
 }
 
 void Pager::CachePage(std::shared_ptr<MemPage> mp)
 {
-    Attach(mp);
+    if (m_pages.size() > MAX_PAGE_CACHE - 1)
+        Prune(MAX_PAGE_CACHE - 1);
+    Attach(mp.get());
     m_pages.insert(std::make_pair(mp->header.page_no, mp));
-    if (m_pages.size() > MAX_PAGE_CACHE)
-        Prune();
 }
 
 }

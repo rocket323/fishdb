@@ -16,6 +16,7 @@ BTree * BTree::Open(std::string dbfile,
     if (ret)
         return NULL;
     bt->m_root = bt->m_pager.GetRoot();
+    bt->m_root->is_leaf = true;
     return bt;
 }
 

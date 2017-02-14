@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 #include <memory>
-#include "format.h"
+#include "util.h"
 
 namespace fishdb
 {
@@ -157,10 +157,11 @@ public:
 
 protected:
     void Prune(int size_limit = MAX_PAGE_CACHE);
-    void Attach(std::shared_ptr<MemPage> mp);
-    void Detach(std::shared_ptr<MemPage> mp);
+    void Attach(MemPage *mp);
+    void Detach(MemPage *mp);
     void TouchPage(std::shared_ptr<MemPage> mp);
     void CachePage(std::shared_ptr<MemPage> mp);
+    void WriteFile(char *buf, const int len, int64_t offset);
 
 private:
     std::map<int64_t, std::shared_ptr<MemPage>> m_pages;
