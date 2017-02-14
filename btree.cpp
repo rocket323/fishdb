@@ -16,7 +16,7 @@ BTree * BTree::Open(std::string dbfile,
     if (ret)
         return NULL;
     bt->m_root = bt->m_pager.GetRoot();
-    bt->m_root->is_leaf = true;
+    printf("root_page_no[%" PRId64 "]\n", bt->m_root->header.page_no);
     return bt;
 }
 
@@ -72,7 +72,7 @@ int BTree::Get(const char *k, std::string &data)
     return Get(key, data);
 }
 
-int BTree::Put(const char *k, const char *data)
+int BTree::Put(const char *k, std::string &data)
 {
     std::string key = k;
     return Put(key, data);
@@ -104,7 +104,7 @@ int BTree::Get(const std::string &key, std::string &data)
     return BT_ERROR;
 }
 
-int BTree::Put(const std::string &key, const char *data)
+int BTree::Put(const std::string &key, std::string &data)
 {
     Insert(m_root, nil, 0, key, data);
     return BT_OK;

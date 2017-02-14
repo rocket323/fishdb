@@ -31,6 +31,7 @@ void Iterator::SeekToFirst()
         m_valid = false;
         m_stack.clear();
     }
+    printf("iter stack_size[%zu]\n", m_stack.size());
 }
 
 void Iterator::SeekToLast()
@@ -141,8 +142,9 @@ void Iterator::Next()
 
 bool Iterator::Valid()
 {
-    if (m_stack.size() == 0) return false;
-    return m_valid && m_kv_idx >= 0 && m_kv_idx < (int)m_stack.back()->kvs.size();
+    // if (m_stack.size() == 0) return false;
+    // return m_valid && m_kv_idx >= 0 && m_kv_idx < (int)m_stack.back()->kvs.size();
+    return m_valid;
 }
 
 std::string Iterator::Key()

@@ -14,7 +14,8 @@ int main()
         return -1;
     }
 
-    bt->Put("greet", "hello world");
+    std::string val = "hello world";
+    bt->Put("greet", val);
 
     std::string value;
     bt->Get("greet", value);

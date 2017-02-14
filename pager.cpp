@@ -1,3 +1,4 @@
+#include <inttypes.h>
 #include <cstring>
 #include <unistd.h>
 #include <assert.h>
@@ -47,9 +48,8 @@ int Pager::Init(std::string file)
 
 void Pager::Close()
 {
-    fseek(m_file, 0, SEEK_SET);
-    fwrite((void *)m_db_header, sizeof(DBHeader), 1, m_file);
-    Prune(0);
+    WriteFile((char *)m_db_header, sizeof(DBHeader), 0);
+    Prune(0, true);
     fclose(m_file);
     delete m_db_header;
     delete m_head;
@@ -87,13 +87,19 @@ std::shared_ptr<MemPage> Pager::NewPage(PageType type)
 
 void Pager::SetRoot(int64_t root_page_no)
 {
+    printf("set root_page_no[%" PRId64 "]\n", root_page_no);
     m_db_header->root_page_no = root_page_no;
 }
 
 std::shared_ptr<MemPage> Pager::GetRoot()
 {
     if (m_db_header->root_page_no == -1)
-        return NewPage(TREE_PAGE);
+    {
+        auto mp = NewPage(TREE_PAGE);
+        SetRoot(mp->header.page_no);
+        mp->is_leaf = true;
+        return mp;
+    }
     else
         return GetPage(m_db_header->root_page_no);
 }
@@ -145,6 +151,7 @@ std::shared_ptr<MemPage> Pager::GetPage(int64_t page_no, bool stick)
         {
             mp->raw.assign(buf + PH_SIZE, PAGE_SIZE - PH_SIZE);
         }
+        printf("read page[%" PRId64 "], of_page_no[%" PRId64 "] is_leaf[%d]\n", page_no, header->of_page_no, mp->is_leaf);
 
         mp->stick |= stick;
         return mp;
@@ -171,7 +178,8 @@ void Pager::FlushPage(std::shared_ptr<MemPage> mp)
     int32_t size = 0;
     mp->Serialize(buf, size);
     PageHeader *header = (PageHeader *)buf;
-    int page_cnt = size / PAGE_CAPA + (size % PAGE_CAPA > 0);
+    int data_size = size - PH_SIZE;
+    int page_cnt = data_size / PAGE_CAPA + (data_size % PAGE_CAPA > 0);
 
     if (page_cnt <= p->header.page_cnt)
     {
@@ -195,6 +203,7 @@ void Pager::FlushPage(std::shared_ptr<MemPage> mp)
             auto of_mp = GetPage(of_page_no);
             of_page_no = of_mp->header.of_page_no;
             FreePage(of_mp);
+            FlushPage(of_mp);
         }
 
         // reallocate of_pages
@@ -215,8 +224,8 @@ void Pager::FlushPage(std::shared_ptr<MemPage> mp)
     }
 
     int64_t offset = page_no * PAGE_SIZE;
-    fseek(m_file, offset, SEEK_SET);
-    fwrite((void *)buf, PAGE_SIZE, 1, m_file);
+    WriteFile(buf, PAGE_SIZE, offset);
+    printf("flush page[%" PRId64 "], of_page_no[%" PRId64 "], file_size[%d]\n", page_no, header->of_page_no, m_file_size);
 }
 
 int Pager::FreePage(std::shared_ptr<MemPage> mp)
@@ -238,17 +247,18 @@ int Pager::FreePage(std::shared_ptr<MemPage> mp)
     return 0;
 }
 
-void Pager::Prune(int size_limit)
+void Pager::Prune(int size_limit, bool force)
 {
     auto now = m_tail;
     while (true)
     {
         auto mp = now->lru_prev;
-        if (mp == now) break;
+        if (mp == m_tail) break;
         if ((int)m_pages.size() <= size_limit) break;
         now = mp;
-        if (mp->stick) continue;
+        if (mp->stick && !force) continue;
 
+        now = m_tail;
         Detach(mp);
         int64_t page_no = mp->header.page_no;
         auto iter = m_pages.find(page_no);

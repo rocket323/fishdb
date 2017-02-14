@@ -98,10 +98,9 @@ struct MemPage
     void Serialize(char *buf, int32_t &size)
     {
         char *sp = buf;
-        int32_t header_size = 0;
         header.is_leaf = is_leaf;
-        header.Serialize(buf, header_size);
-        buf += header_size;
+        memcpy(buf, (void *)&header, sizeof(PageHeader));
+        buf += sizeof(PageHeader);
 
         buf += EncodeInt32(buf, children.size());
         for (size_t i = 0; i < children.size(); ++i)
@@ -117,9 +116,8 @@ struct MemPage
     void Parse(char *buf, int32_t &size)
     {
         char *sp = buf;
-        int32_t header_size = 0;
-        header.Parse(buf, header_size);
-        buf += header_size;
+        memcpy((void *)&header, buf, sizeof(PageHeader));
+        buf += sizeof(PageHeader);
         is_leaf = header.is_leaf;
 
         int32_t num;
@@ -156,7 +154,7 @@ public:
     int FreePage(std::shared_ptr<MemPage> mp);
 
 protected:
-    void Prune(int size_limit = MAX_PAGE_CACHE);
+    void Prune(int size_limit = MAX_PAGE_CACHE, bool force = false);
     void Attach(MemPage *mp);
     void Detach(MemPage *mp);
     void TouchPage(std::shared_ptr<MemPage> mp);
