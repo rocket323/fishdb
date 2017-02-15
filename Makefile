@@ -14,7 +14,7 @@ examples: ${lib}
 	g++ -g --std=c++0x -I./ examples/ex_iter.cpp -o examples/ex_iter ${lib} -Wall
 
 test: ${lib}
-	g++ -g --std=c++0x -I./ -o tests/fdb_test ${test_src} ${lib} -Wall
+	g++ -g --std=c++0x -I./ -o fdb_test ${test_src} ${lib} -Wall
 
 .PHONY: clean
 

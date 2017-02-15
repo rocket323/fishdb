@@ -7,8 +7,6 @@
 namespace fishdb
 {
 
-std::shared_ptr<MemPage> pageNil; 
-
 int Pager::Init(std::string file)
 {
     m_db_header = new DBHeader();
@@ -30,13 +28,12 @@ int Pager::Init(std::string file)
 
     if (m_file_size < PAGE_SIZE)
     {
-        ftruncate(fileno(m_file), PAGE_SIZE);
-        m_file_size = PAGE_SIZE;
         memset(m_db_header, 0, sizeof(DBHeader));
         m_db_header->free_list = -1;
         m_db_header->total_pages = 1;
         m_db_header->page_size = PAGE_SIZE;
         m_db_header->root_page_no = -1;
+        WriteFile((char *)m_db_header, sizeof(DBHeader), 0);
     }
     else
     {
@@ -71,7 +68,10 @@ std::shared_ptr<MemPage> Pager::NewPage(PageType type)
         mp->header.page_no = m_db_header->total_pages++;
     }
     if (type == TREE_PAGE)
+    {
+        mp->stick = true;
         CachePage(mp);
+    }
 
     // init page
     auto &header = mp->header;
@@ -108,11 +108,11 @@ char buf[PAGE_SIZE * 100];
 std::shared_ptr<MemPage> Pager::GetPage(int64_t page_no, bool stick)
 {
     auto iter = m_pages.find(page_no);
+    std::shared_ptr<MemPage> mp;
     if (iter != m_pages.end())
     {
-        TouchPage(iter->second);
-        iter->second->stick |= stick;
-        return iter->second;
+        mp = iter->second;
+        TouchPage(mp);
     }
     else
     {
@@ -121,50 +121,51 @@ std::shared_ptr<MemPage> Pager::GetPage(int64_t page_no, bool stick)
         assert(offset + PAGE_SIZE <= m_file_size);
 
         memset(buf, 0, sizeof buf);
-        auto mp = std::make_shared<MemPage>();
+        mp = std::make_shared<MemPage>();
         fseek(m_file, offset, SEEK_SET);
         fread((void *)buf, PAGE_SIZE, 1, m_file);
         PageHeader *header = (PageHeader *)buf;
         mp->header = *header;
+        int page_cnt = header->page_cnt;
 
         if (header->type == TREE_PAGE)
         {
             int cur_size = PAGE_SIZE;
             int64_t of_page_no = header->of_page_no;
+            int cnt = 1;
             while (of_page_no > 0)
             {
+                cnt++;
+                assert(cnt <= page_cnt);
                 int offset = header->of_page_no;
                 assert(offset + PAGE_SIZE <= m_file_size);
                 fseek(m_file, offset, SEEK_SET);
-                char tmp_page[PAGE_SIZE];
-                fread((void *)tmp_page, PAGE_SIZE, 1, m_file);
-                header = (PageHeader *)tmp_page;
-                memcpy(buf + cur_size, tmp_page + PH_SIZE, PAGE_CAPA);
+                char of_page[PAGE_SIZE];
+                fread((void *)of_page, PAGE_SIZE, 1, m_file);
+                auto of_header = (PageHeader *)of_page;
+                memcpy(buf + cur_size, of_page + PH_SIZE, PAGE_CAPA);
                 cur_size += PAGE_CAPA;
-                of_page_no = header->of_page_no;
+                of_page_no = of_header->of_page_no;
             }
 
             mp->Parse(buf, cur_size);
             CachePage(mp);
         }
-        else
-        {
-            mp->raw.assign(buf + PH_SIZE, PAGE_SIZE - PH_SIZE);
-        }
         printf("read page[%" PRId64 "], of_page_no[%" PRId64 "] is_leaf[%d]\n", page_no, header->of_page_no, mp->is_leaf);
 
-        mp->stick |= stick;
-        return mp;
     }
-    return pageNil;
+    mp->stick |= stick;
+    return mp;
 }
 
 void Pager::WriteFile(char *buf, const int len, int64_t offset)
 {
-    if (offset + len > m_file_size)
+    int64_t cur_size = offset + len;
+    int64_t up_round = (cur_size + PAGE_SIZE - 1) / PAGE_SIZE * PAGE_SIZE;
+    if (up_round > m_file_size)
     {
-        ftruncate(fileno(m_file), offset + len + PAGE_SIZE);
-        m_file_size = offset + len + PAGE_SIZE;
+        ftruncate(fileno(m_file), up_round);
+        m_file_size = up_round;
     }
     fseek(m_file, offset, SEEK_SET);
     fwrite((void *)buf, len, 1, m_file);
@@ -180,7 +181,9 @@ void Pager::FlushPage(std::shared_ptr<MemPage> mp)
     PageHeader *header = (PageHeader *)buf;
     int data_size = size - PH_SIZE;
     int page_cnt = data_size / PAGE_CAPA + (data_size % PAGE_CAPA > 0);
+    header->page_cnt = page_cnt;
 
+    // FIXME page leak
     if (page_cnt <= p->header.page_cnt)
     {
         int64_t base = PAGE_SIZE;
@@ -258,6 +261,7 @@ void Pager::Prune(int size_limit, bool force)
         now = mp;
         if (mp->stick && !force) continue;
 
+        printf("free page[%" PRId64 "]\n", mp->header.page_no);
         now = m_tail;
         Detach(mp);
         int64_t page_no = mp->header.page_no;

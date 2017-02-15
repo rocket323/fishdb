@@ -39,31 +39,6 @@ struct PageHeader
     int32_t data_size;
     int16_t page_cnt;
     int8_t is_leaf;
-
-    void Serialize(char *buf, int32_t &size)
-    {
-        char *sp = buf;
-        buf += EncodeInt64(buf, page_no);
-        buf += EncodeInt8(buf, type);
-        buf += EncodeInt64(buf, next_free);
-        buf += EncodeInt64(buf, of_page_no);
-        buf += EncodeInt32(buf, data_size);
-        buf += EncodeInt16(buf, page_cnt);
-        buf += EncodeInt8(buf, is_leaf);
-        size = buf - sp;
-    }
-    void Parse(char *buf, int32_t &size)
-    {
-        char *sp = buf;
-        buf += DecodeInt64(buf, page_no);
-        buf += DecodeInt8(buf, type);
-        buf += DecodeInt64(buf, next_free);
-        buf += DecodeInt64(buf, of_page_no);
-        buf += DecodeInt32(buf, data_size);
-        buf += DecodeInt16(buf, page_cnt);
-        buf += DecodeInt8(buf, is_leaf);
-        size = buf - sp;
-    }
 };
 
 struct Page
@@ -88,7 +63,6 @@ struct MemPage
     PageHeader header;
     std::vector<int64_t> children;
     std::vector<KV> kvs;
-    std::string raw;
     bool stick;
     bool is_leaf;
 
@@ -153,8 +127,9 @@ public:
     void FlushPage(std::shared_ptr<MemPage> mp);
     int FreePage(std::shared_ptr<MemPage> mp);
 
-protected:
     void Prune(int size_limit = MAX_PAGE_CACHE, bool force = false);
+
+protected:
     void Attach(MemPage *mp);
     void Detach(MemPage *mp);
     void TouchPage(std::shared_ptr<MemPage> mp);
@@ -169,6 +144,8 @@ private:
     FILE *m_file;
     int m_file_size;
 };
+
+static const std::shared_ptr<MemPage> nil;
 
 }
 

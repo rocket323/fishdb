@@ -3,7 +3,6 @@
 
 namespace fishdb
 {
-std::shared_ptr<MemPage> nil;
 
 BTree * BTree::Open(std::string dbfile,
         CmpFunc cmp_func, int min_key_num)

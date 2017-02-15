@@ -10,9 +10,54 @@ using namespace fishdb;
 
 BTree *bt = NULL;
 
+void FillPage(std::shared_ptr<MemPage> mp)
+{
+    for (int i = 0; i < 200; ++i)
+        mp->children.push_back(100);
+    for (int i = 0; i < 200; ++i)
+        mp->kvs.push_back(KV("hello", "world"));
+}
+
+MU_TEST(test_pager)
+{
+    Pager pager;
+    int ret = pager.Init("test1.fdb");
+    if (ret != 0)
+    {
+        printf("open test1.fdb failed");
+        return;
+    }
+    srand(time(NULL));
+
+    int N = 20;
+    std::vector<int64_t> pgno;
+    for (int i = 0; i < N; ++i)
+    {
+        auto mp = pager.NewPage();
+        pgno.push_back(mp->header.page_no);
+        FillPage(mp);
+    }
+
+    pager.Prune(0, true);
+
+    for (int i = 0; i < (int)pgno.size(); ++i)
+    {
+        auto mp = pager.GetPage(pgno[i]);
+    }
+
+    pager.Close();
+}
+
 MU_TEST(test_btree_simple)
 {
+    bt = BTree::Open("test2.fdb");
+    if (bt == NULL)
+    {
+        printf("open test2.fdb failed");
+        return;
+    }
     srand(time(NULL));
+
     int N = 20;
     char big_data[6 * 1025];
     for (int i = 0; i < N; ++i)
@@ -49,17 +94,12 @@ MU_TEST(test_btree_simple)
 
 MU_TEST_SUITE(test_suite)
 {
-    MU_RUN_TEST(test_btree_simple);
+    // MU_RUN_TEST(test_btree_simple);
+    MU_RUN_SUITE(test_pager);
 }
 
 int main(int argc, char **argv)
 {
-    bt = BTree::Open("test.fdb");
-    if (bt == NULL)
-    {
-        printf("open test.fdb failed");
-        return -1;
-    }
 
     MU_RUN_SUITE(test_suite);
     MU_REPORT();
