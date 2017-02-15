@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <assert.h>
 #include "util.h"
 
 namespace fishdb
@@ -65,9 +66,15 @@ struct MemPage
     std::vector<KV> kvs;
     bool stick;
     bool is_leaf;
+    std::string data;
 
     MemPage *lru_next;
     MemPage *lru_prev;
+
+    void SetData(char *buf, int size)
+    {
+        data.assign(buf, size);
+    }
 
     void Serialize(char *buf, int32_t &size)
     {
@@ -89,6 +96,7 @@ struct MemPage
             }
         }
         size = buf - sp;
+        assert(size <= PAGE_SIZE * 100);
     }
     void Parse(char *buf, int32_t &size)
     {
@@ -117,6 +125,7 @@ struct MemPage
             }
         }
         size = buf - sp;
+        assert(size <= PAGE_SIZE * 100);
     }
 };
 

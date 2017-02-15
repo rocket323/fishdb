@@ -29,7 +29,7 @@ MU_TEST(test_pager)
     }
     srand(time(NULL));
 
-    int N = 20;
+    int N = 5;
     std::vector<int64_t> pgno;
     for (int i = 0; i < N; ++i)
     {

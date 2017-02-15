@@ -61,7 +61,6 @@ std::shared_ptr<MemPage> Pager::NewPage(PageType type)
     if (m_db_header->free_list != -1)
     {
         mp = GetPage(m_db_header->free_list, type);
-        assert(mp);
         m_db_header->free_list = mp->header.next_free;
     }
     else
@@ -160,9 +159,10 @@ std::shared_ptr<MemPage> Pager::GetPage(int64_t page_no, PageType type, bool sti
         }
 
     }
+    assert(mp->header.page_no == page_no);
     mp->stick |= stick;
-    printf("read page[%" PRId64 "], of_page_no[%" PRId64 "] page_cnt[%d]\n",
-            page_no, mp->header.of_page_no, mp->header.page_cnt);
+    //printf("read page[%" PRId64 "], of_page_no[%" PRId64 "] page_cnt[%d]\n",
+    //        page_no, mp->header.of_page_no, mp->header.page_cnt);
     return mp;
 }
 
@@ -240,8 +240,8 @@ void Pager::FlushPage(std::shared_ptr<MemPage> mp)
 
     int64_t offset = page_no * PAGE_SIZE;
     WriteFile(buf, PAGE_SIZE, offset);
-    printf("flush page[%" PRId64 "], of_page_no[%" PRId64 "], page_cnt[%d]\n",
-            page_no, header->of_page_no, header->page_cnt);
+    // printf("flush page[%" PRId64 "], of_page_no[%" PRId64 "], page_cnt[%d]\n",
+    //        page_no, header->of_page_no, header->page_cnt);
 }
 
 int Pager::FreePage(std::shared_ptr<MemPage> mp)
@@ -280,7 +280,7 @@ void Pager::Prune(int size_limit, bool force)
         auto iter = m_pages.find(page_no);
         if (iter != m_pages.end())
         {
-            auto &_mp = iter->second;
+            auto _mp = iter->second;
             FlushPage(_mp);
             m_pages.erase(iter);
         }
@@ -289,7 +289,6 @@ void Pager::Prune(int size_limit, bool force)
 
 void Pager::Attach(MemPage *mp)
 {
-    printf("attach page[%" PRId64 "]\n", mp->header.page_no);
     assert(mp->header.page_no > 0);
     mp->lru_next = m_head->lru_next;
     mp->lru_prev = m_head;
