@@ -32,7 +32,7 @@ Iterator * BTree::NewIterator()
 
 std::shared_ptr<MemPage> BTree::ReadPage(int64_t page_no)
 {
-    return m_pager.GetPage(page_no, true);
+    return m_pager.GetPage(page_no, TREE_PAGE, true);
 }
 
 bool BTree::Less(std::string &a, std::string &b)

@@ -19,5 +19,5 @@ test: ${lib}
 .PHONY: clean
 
 clean:
-	rm -f *.o ${lib} examples/ex_basic examples/ex_iter tests/fdb_test
+	rm -f *.o ${lib} examples/ex_basic examples/ex_iter fdb_test
 

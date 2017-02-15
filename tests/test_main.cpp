@@ -38,11 +38,23 @@ MU_TEST(test_pager)
         FillPage(mp);
     }
 
+    for (auto p = pager.m_tail->lru_prev; p != pager.m_head; p = p->lru_prev)
+    {
+        printf("xx [%" PRId64 "]\n", p->header.page_no);
+    }
+
+    printf("prune!!!\n");
     pager.Prune(0, true);
+    printf("after prune!!!\n");
 
     for (int i = 0; i < (int)pgno.size(); ++i)
     {
         auto mp = pager.GetPage(pgno[i]);
+    }
+
+    for (auto p = pager.m_tail->lru_prev; p != pager.m_head; p = p->lru_prev)
+    {
+        printf("xx [%" PRId64 "]\n", p->header.page_no);
     }
 
     pager.Close();
@@ -58,7 +70,7 @@ MU_TEST(test_btree_simple)
     }
     srand(time(NULL));
 
-    int N = 20;
+    int N = 50;
     char big_data[6 * 1025];
     for (int i = 0; i < N; ++i)
     {
