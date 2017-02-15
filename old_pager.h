@@ -1,5 +1,5 @@
-#ifndef NP_H_
-#define NP_H_
+#ifndef PAGER_H_
+#define PAGER_H_
 
 #include <map>
 #include <string>
@@ -71,6 +71,11 @@ struct MemPage
     MemPage *lru_next;
     MemPage *lru_prev;
 
+    void SetData(char *buf, int size)
+    {
+        data.assign(buf, size);
+    }
+
     void Serialize(char *buf, int32_t &size)
     {
         char *sp = buf;
@@ -132,9 +137,8 @@ public:
 
     std::shared_ptr<MemPage> GetRoot();
     void SetRoot(int64_t root_page_no);
-
     std::shared_ptr<MemPage> NewPage(PageType type = TREE_PAGE);
-    std::shared_ptr<MemPage> GetPage(int64_t page_no, bool stick = false);
+    std::shared_ptr<MemPage> GetPage(int64_t page_no, PageType type = TREE_PAGE, bool stick = false);
     void FlushPage(std::shared_ptr<MemPage> mp);
     int FreePage(std::shared_ptr<MemPage> mp);
 
