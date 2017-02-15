@@ -1,4 +1,4 @@
-`shDB` is a key-value storage based on b-tree model.
+`fishDB` is a key-value storage based on b-tree model.
 
 ## Install
 ```c++
