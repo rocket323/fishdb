@@ -107,34 +107,71 @@ void Pager::FlushPage(std::shared_ptr<MemPage> mp)
     header->page_cnt = page_cnt;
 
     auto p = ReadPage(page_no);
-    if (p == nil || page_cnt > p->header.page_cnt)
+    std::vector<std::shared_ptr<MemPage>> pages;
+    while (p != nil)
     {
-        // free previous of_pages
-        
-        // reallocate of_pages
+        pages.push_back(p);
+        if (p->header.of_page_no <= 0) break;
+        p = ReadPage(p->header.of_page_no);
     }
-    else
+    for (int i = 0; i < page_cnt - pages.size(); ++i)
+        pages.push_back(NewPage());
+
+    for (int i = 0; i < page_cnt; ++i)
     {
+        auto &p = pages[i];
+        int64_t base = PH_SIZE + i * PAGE_CAPA;
+        p->Feed(buf + base, PAGE_CAPA);
+        if (i < page_cnt - 1)
+            p->header.of_page_no = pages[i + 1]->header.page_no;
+        else
+            p->header.of_page_no = -1;
+        WritePage(p);
     }
 }
 
-int Pager::FreePage(std::shared_ptr<MemPage> mp)
+void Pager::FreePage(std::shared_ptr<MemPage> mp)
 {
+    while (mp)
+    {
+        auto header = mp->header;
+        int64_t of_page_no = header.of_page_no;
+        header.type = FREE_PAGE;
+        header.of_page_no = -1;
+        header.data_size = 0;
+        header.page_cnt = 1;
+        header.next_free = m_db_header->free_list;
+        m_db_header->free_list = header.page_no;
+        WritePage(mp);
+        mp = ReadPage(of_page_no);
+    }
 } 
+
 void Pager::Prune(int size_limit, bool force)
 {
+    for (auto iter = m_pages.begin(); iter != m_pages.end(); )
+    {
+        if ((int)m_pages.size() <= size_limit) break;
+        auto mp = iter->second;
+        if (mp->stick && !force) continue;
+        FreePage(mp);
+        FlushPage(mp);
+        iter = m_pages.erase(iter);
+    }
 }
 
 void Pager::CachePage(std::shared_ptr<MemPage> mp)
 {
+    m_pages.insert(std::make_pair(mp->header.page_no, mp));
 }
 
-void Pager::WritePage(int64_t page_no, std::shared_ptr<MemPage> mp)
+void Pager::WritePage(std::shared_ptr<MemPage> mp)
 {
 }
 
 std::shared_ptr<MemPage> Pager::ReadPage(int64_t page_no)
 {
+    // if invalid, return nil
 }
 
 
