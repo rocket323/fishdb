@@ -167,13 +167,33 @@ void Pager::CachePage(std::shared_ptr<MemPage> mp)
 
 void Pager::WritePage(std::shared_ptr<MemPage> mp)
 {
+    int64_t page_no = mp->header.page_no;
+    auto header = &mp->header;
+    int64_t offset = page_no * PG_SIZE;
+    if (offset + PG_SIZE > m_file_size)
+    {
+        ftruncate(fileno(m_file), offset + PG_SIZE);
+        m_file_size = offset + PG_SIZE;
+    }
+    assert(mp->data.size() && mp->data.size() <= PAGE_CAPA);
+    fseek(m_file, offset, SEEK_SET);
+    fwrite((void *)header, sizeof(PageHeader), 1, m_file);
+    fwrite((void *)mp->data.c_str(), mp->data.size(), 1, m_file);
 }
 
 std::shared_ptr<MemPage> Pager::ReadPage(int64_t page_no)
 {
     // if invalid, return nil
+    if (page_no <= 0) return nil;
+    int64_t offset = page_no * PG_SIZE;
+    assert(offset + PG_SIZE <= m_file_size);
+    auto mp = std::make_shared<MemPage>();
+    auto header = &mp->header;
+    fread((void *)header, sizeof(PageHeader), 1, m_file);
+    fread((void *)buf, PAGE_CAPA, 1, m_file);
+    mp->Feed(buf, PAGE_CAPA);
+    return mp;
 }
-
 
 }
 

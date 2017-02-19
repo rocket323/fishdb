@@ -1,4 +1,4 @@
-`fishDB` is a key-value storage based on b-tree model.
+`FishDB` is a key-value storage based on b-tree model.
 
 ## Install
 ```c++
