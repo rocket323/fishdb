@@ -1,5 +1,5 @@
-#ifndef NP_H_
-#define NP_H_
+#ifndef PAGER_H_ 
+#define PAGER_H_
 
 #include <map>
 #include <string>
@@ -26,11 +26,10 @@ public:
     std::shared_ptr<MemPage> NewPage(PageType type = TREE_PAGE);
     std::shared_ptr<MemPage> GetPage(int64_t page_no, bool stick = false);
     void FlushPage(std::shared_ptr<MemPage> mp);
-    void FreePage(std::shared_ptr<MemPage> mp);
-
     void Prune(int size_limit = MAX_PAGE_CACHE, bool force = false);
 
 protected:
+    void FreePage(std::shared_ptr<MemPage> mp);
     void CachePage(std::shared_ptr<MemPage> mp);
     void WritePage(std::shared_ptr<MemPage> mp);
     std::shared_ptr<MemPage> ReadPage(int64_t page_no);
@@ -39,7 +38,7 @@ public:
     std::map<int64_t, std::shared_ptr<MemPage>> m_pages;
     DBHeader *m_db_header;
     FILE *m_file;
-    int m_file_size;
+    int64_t m_file_size;
 };
 static const std::shared_ptr<MemPage> nil;
 

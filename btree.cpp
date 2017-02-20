@@ -32,7 +32,9 @@ Iterator * BTree::NewIterator()
 
 std::shared_ptr<MemPage> BTree::ReadPage(int64_t page_no)
 {
-    return m_pager.GetPage(page_no, TREE_PAGE, true);
+    auto mp = m_pager.GetPage(page_no, true);
+    assert(mp != nil);
+    return mp;
 }
 
 bool BTree::Less(std::string &a, std::string &b)
@@ -117,7 +119,11 @@ void BTree::Insert(std::shared_ptr<MemPage> now, std::shared_ptr<MemPage> parent
     if (iter != now->kvs.end() && Equal(iter->key, key))
         iter->value = data;
     else if (!now->is_leaf)
+    {
+        assert(now);
+        assert(now->children.size() > p);
         Insert(ReadPage(now->children[p]), now, p, key, data);
+    }
     else
         now->kvs.insert(iter, KV(key, data));
     if ((int)now->kvs.size() <= 2 * m_min_key_num) return;

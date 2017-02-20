@@ -20,6 +20,7 @@ struct DBHeader
 {
     int64_t free_list;
     int64_t root_page;
+    int64_t total_pages;
 };
 
 struct PageHeader
@@ -48,13 +49,11 @@ typedef std::vector<KV>::iterator KVIter;
 struct Page
 {
     PageHeader header;
-    char data[PG_SIZE];
+    char data[PAGE_CAPA];
 };
 
-class MemPage
+struct MemPage
 {
-    friend class Pager;
-private:
     PageHeader header;
     std::string data;
 
@@ -66,6 +65,7 @@ private:
     MemPage *lru_prev;
 
 public:
+    void Clear();
     void Feed(const char *buf, int size);
     void Serialize(char *buf, int &size);
     void Parse();

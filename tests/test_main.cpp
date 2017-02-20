@@ -10,26 +10,28 @@ using namespace fishdb;
 
 BTree *bt = NULL;
 
+int ks = 200;
+
 void FillPage(std::shared_ptr<MemPage> mp)
 {
-    for (int i = 0; i < 200; ++i)
+    for (int i = 0; i < ks; ++i)
         mp->children.push_back(100);
-    for (int i = 0; i < 200; ++i)
+    for (int i = 0; i < ks; ++i)
         mp->kvs.push_back(KV("hello", "world"));
 }
 
-MU_TEST(test_pager)
+MU_TEST(test_encode)
 {
     Pager pager;
-    int ret = pager.Init("test1.fdb");
+    int ret = pager.Init("test3.fdb");
     if (ret != 0)
     {
-        printf("open test1.fdb failed");
+        printf("open test3.fdb failed\n");
         return;
     }
     srand(time(NULL));
 
-    int N = 5;
+    int N = 1;
     std::vector<int64_t> pgno;
     for (int i = 0; i < N; ++i)
     {
@@ -38,23 +40,45 @@ MU_TEST(test_pager)
         FillPage(mp);
     }
 
-    for (auto p = pager.m_tail->lru_prev; p != pager.m_head; p = p->lru_prev)
+    for (int i = 0; i < (int)pgno.size(); ++i)
     {
-        printf("xx [%" PRId64 "]\n", p->header.page_no);
+        auto mp = pager.GetPage(pgno[i]);
+        printf("children_size[%zu], kvs_size[%zu]\n", mp->children.size(), mp->kvs.size());
+        assert(mp->children.size() == ks);
+        assert(mp->kvs.size() == ks);
     }
 
-    printf("prune!!!\n");
+    pager.Close();
+}
+
+MU_TEST(test_pager)
+{
+    Pager pager;
+    int ret = pager.Init("test1.fdb");
+    if (ret != 0)
+    {
+        printf("open test1.fdb failed\n");
+        return;
+    }
+    srand(time(NULL));
+
+    int N = 2;
+    std::vector<int64_t> pgno;
+    for (int i = 0; i < N; ++i)
+    {
+        auto mp = pager.NewPage();
+        pgno.push_back(mp->header.page_no);
+        FillPage(mp);
+    }
+
     pager.Prune(0, true);
-    printf("after prune!!!\n");
 
     for (int i = 0; i < (int)pgno.size(); ++i)
     {
         auto mp = pager.GetPage(pgno[i]);
-    }
-
-    for (auto p = pager.m_tail->lru_prev; p != pager.m_head; p = p->lru_prev)
-    {
-        printf("xx [%" PRId64 "]\n", p->header.page_no);
+        printf("children_size[%zu], kvs_size[%zu]\n", mp->children.size(), mp->kvs.size());
+        assert(mp->children.size() == ks);
+        assert(mp->kvs.size() == ks);
     }
 
     pager.Close();
@@ -65,7 +89,7 @@ MU_TEST(test_btree_simple)
     bt = BTree::Open("test2.fdb");
     if (bt == NULL)
     {
-        printf("open test2.fdb failed");
+        printf("open test2.fdb failed\n");
         return;
     }
     srand(time(NULL));
@@ -82,7 +106,8 @@ MU_TEST(test_btree_simple)
         val_oss << "val" << valNum;
         std::string key = key_oss.str();
         std::string val(big_data, sizeof(big_data));
-        if (i < N / 2)
+        // if (i < N / 2)
+        if (i < N)
             val = val_oss.str();
 
         // std::cout << key << ' ' << val << std::endl;
@@ -94,6 +119,7 @@ MU_TEST(test_btree_simple)
     }
 
     auto iter = bt->NewIterator();
+    printf("iterating...\n");
     for (iter->SeekToFirst(); iter->Valid(); iter->Next())
     {
         // std::cout << iter->Key() << ": " << iter->Value() << std::endl;
@@ -107,6 +133,7 @@ MU_TEST(test_btree_simple)
 MU_TEST_SUITE(test_suite)
 {
     // MU_RUN_TEST(test_btree_simple);
+    // MU_RUN_SUITE(test_encode);
     MU_RUN_SUITE(test_pager);
 }
 
