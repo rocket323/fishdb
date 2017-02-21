@@ -20,7 +20,7 @@ bt->Put('key', 'value');
 Iterating over key space:
 ```c++
 auto iter = bt->NewIterator();
-for (iter->SeekToFirst(); iter->Valid(); iter->Next)
+for (iter->SeekToFirst(); iter->Valid(); iter->Next())
 {
 	std::cout << iter->Key() << ": " << iter->Value() << std::endl;
 }
