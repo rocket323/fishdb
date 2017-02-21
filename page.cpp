@@ -34,7 +34,6 @@ void MemPage::Serialize(char *buf, int &size)
         buf += EncodeString(buf, kvs[i].value);
     }
     size = buf - sp;
-    printf("yy page_no %" PRId64 " size: %d\n", header.page_no, size);
 }
 
 char sbuf[PG_SIZE * 1000];
@@ -42,19 +41,10 @@ void MemPage::Parse()
 {
     char *buf = sbuf;
     memcpy(sbuf, data.c_str(), data.size());
-    printf("page data_size[%zu]\n", data.size());
     is_leaf = header.is_leaf;
-    printf("xx page_no: %" PRId64 " page_cnt %d\n", header.page_no, header.page_cnt);
     int32_t num;
 
-    for (int i = 0; i < std::min(50, (int)data.size()); ++i)
-    {
-        printf("0x%x ", buf[i]);
-    }
-    puts("");
-
     buf += DecodeInt32(buf, num);
-    printf("num: %d\n", num);
     for (int i = 0; i < num; ++i)
     {
         int64_t c;

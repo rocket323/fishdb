@@ -34,7 +34,6 @@ int Pager::Init(std::string file)
         // TODO do some check
         fread((void *)m_db_header, sizeof(DBHeader), 1, m_file);
     }
-    printf("pager init, root_page[%" PRId64 "]\n", m_db_header->root_page);
     return 0;
 }
 
@@ -119,10 +118,8 @@ std::shared_ptr<MemPage> Pager::GetPage(int64_t page_no, bool stick)
             mp->Feed(of_mp->data.c_str(), of_mp->data.size());
             of_page_no = of_mp->header.of_page_no;
         }
-        printf("page[%" PRId64 "] of_page_no[%" PRId64 "], data_size[%zu]\n", page_no, mp->header.of_page_no, mp->data.size());
         if (mp->header.type == TREE_PAGE)
         {
-            printf("parse\n");
             mp->Parse();
             CachePage(mp);
         }
@@ -131,24 +128,15 @@ std::shared_ptr<MemPage> Pager::GetPage(int64_t page_no, bool stick)
     return mp;
 }
 
-char buf[PG_SIZE * 1000];
 void Pager::FlushPage(std::shared_ptr<MemPage> mp)
 {
+    char buf[PG_SIZE * 100];
     assert(mp->header.type == TREE_PAGE);
     int64_t page_no = mp->header.page_no;
     int size = 0;
     mp->Serialize(buf, size);
-    PageHeader *header = (PageHeader *)buf;
     int data_size = size - PH_SIZE;
     int page_cnt = data_size / PAGE_CAPA + (data_size % PAGE_CAPA > 0);
-    printf("ph_size: %d\n", PH_SIZE);
-    printf("flush page_no[%" PRId64 "], data_size[%d], page_cnt[%d]\n", page_no, data_size, page_cnt);
-
-    for (int i = 0; i < std::min(50, (int)size); ++i)
-    {
-        printf("0x%x ", buf[PH_SIZE + i]);
-    }
-    puts("");
 
     std::vector<std::shared_ptr<MemPage>> pages;
     mp->header.page_cnt = page_cnt;
@@ -160,36 +148,17 @@ void Pager::FlushPage(std::shared_ptr<MemPage> mp)
         pages.push_back(p);
     }
     int diff = page_cnt - (int)pages.size();
-    printf("diff %d\n", diff);
     for (int i = 0; i < diff; ++i)
         pages.push_back(NewPage(OF_PAGE));
 
     // FIXME page leak
-    assert(pages.size() >= page_cnt);
+    assert((int)pages.size() >= page_cnt);
     for (int i = 0; i < page_cnt; ++i)
     {
         auto &p = pages[i];
-        printf("feed page_no[%" PRId64 "]\n", p->header.page_no);
         int64_t base = PH_SIZE + i * PAGE_CAPA;
-        if (i == 0)
-        {
-            for (int j = 0; j < PAGE_CAPA; ++j)
-            {
-                printf("0x%x ", buf[base + j]);
-            }
-            puts("");
-        }
         p->Clear();
         p->Feed(buf + base, PAGE_CAPA);
-        if (i == 0)
-        {
-            printf("after feed\n");
-            for (int j = 0; j < 50; ++j)
-            {
-                printf("0x%x ", p->data[j]);
-            }
-            puts("");
-        }
         if (i < page_cnt - 1)
         {
             p->header.of_page_no = pages[i + 1]->header.page_no;
@@ -247,18 +216,6 @@ void Pager::WritePage(std::shared_ptr<MemPage> mp)
         ftruncate(fileno(m_file), offset + PG_SIZE);
         m_file_size = offset + PG_SIZE;
     }
-    printf("write page[%" PRId64 "], of_page_no[%" PRId64 "] page_cnt[%d] data_size[%zu]\n",
-            page_no, mp->header.of_page_no, mp->header.page_cnt, mp->data.size());
-    printf("write num %zu\n", mp->children.size());
-
-    if (mp->header.type == TREE_PAGE)
-    {
-        for (int i = 0; i < std::min(50, (int)mp->data.size()); ++i)
-        {
-            printf("0x%x ", mp->data[i]);
-        }
-        puts("");
-    }
 
     assert(mp->data.size() <= PAGE_CAPA);
     fseek(m_file, offset, SEEK_SET);
@@ -269,10 +226,10 @@ void Pager::WritePage(std::shared_ptr<MemPage> mp)
 
 std::shared_ptr<MemPage> Pager::ReadPage(int64_t page_no)
 {
+    char buf[PG_SIZE * 2];
     // if page_no invalid, return nil
     if (page_no <= 0) return nil;
     int64_t offset = page_no * PG_SIZE;
-    // printf("page[%" PRId64 "] offset[%" PRId64 "] file_size[%" PRId64 "]\n", page_no, offset, m_file_size);
     if (offset + PG_SIZE > m_file_size) return nil;
 
     auto mp = std::make_shared<MemPage>();
@@ -281,10 +238,8 @@ std::shared_ptr<MemPage> Pager::ReadPage(int64_t page_no)
     fread((void *)header, sizeof(PageHeader), 1, m_file);
     fread((void *)buf, PAGE_CAPA, 1, m_file);
     mp->Feed(buf, PAGE_CAPA);
-    // printf("read page[%" PRId64 "], read_page_no[%" PRId64 "], data_size[%zu]\n", page_no, mp->header.page_no, mp->data.size());
     if (mp->header.page_no != page_no)
     {
-        printf("read page[%" PRId64 "] uninited\n", page_no);
         auto p = std::make_shared<MemPage>();
         p->header.page_no = page_no;
         p->header.page_cnt = 1;

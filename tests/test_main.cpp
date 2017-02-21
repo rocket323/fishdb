@@ -44,8 +44,8 @@ MU_TEST(test_encode)
     {
         auto mp = pager.GetPage(pgno[i]);
         printf("children_size[%zu], kvs_size[%zu]\n", mp->children.size(), mp->kvs.size());
-        assert(mp->children.size() == ks);
-        assert(mp->kvs.size() == ks);
+        assert((int)mp->children.size() == ks);
+        assert((int)mp->kvs.size() == ks);
     }
 
     pager.Close();
@@ -77,8 +77,8 @@ MU_TEST(test_pager)
     {
         auto mp = pager.GetPage(pgno[i]);
         printf("children_size[%zu], kvs_size[%zu]\n", mp->children.size(), mp->kvs.size());
-        assert(mp->children.size() == ks);
-        assert(mp->kvs.size() == ks);
+        assert((int)mp->children.size() == ks);
+        assert((int)mp->kvs.size() == ks);
     }
 
     pager.Close();
@@ -106,11 +106,9 @@ MU_TEST(test_btree_simple)
         val_oss << "val" << valNum;
         std::string key = key_oss.str();
         std::string val(big_data, sizeof(big_data));
-        // if (i < N / 2)
-        if (i < N)
+        if (i < N / 2)
             val = val_oss.str();
 
-        // std::cout << key << ' ' << val << std::endl;
         std::string v;
         bt->Put(key, val);
         int ret = bt->Get(key, v);
@@ -122,7 +120,6 @@ MU_TEST(test_btree_simple)
     printf("iterating...\n");
     for (iter->SeekToFirst(); iter->Valid(); iter->Next())
     {
-        // std::cout << iter->Key() << ": " << iter->Value() << std::endl;
         std::cout << iter->Key() << std::endl;
     }
     delete iter;
@@ -132,8 +129,8 @@ MU_TEST(test_btree_simple)
 
 MU_TEST_SUITE(test_suite)
 {
-    // MU_RUN_TEST(test_btree_simple);
-    // MU_RUN_SUITE(test_encode);
+    MU_RUN_TEST(test_btree_simple);
+    MU_RUN_SUITE(test_encode);
     MU_RUN_SUITE(test_pager);
 }
 

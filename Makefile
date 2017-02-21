@@ -2,19 +2,20 @@ lib= libfishdb.a
 src := $(shell find . \( -path "./examples" -o -path "./tests" \) -prune -o -name "*.cpp" -print)
 test_src := $(shell find tests -name "*.cpp" -print)
 obj := $(patsubst %.cpp, %.o, $(src))
+flags := -D__STDC_FORMAT_MACROS -g --std=c++0x
 
 all: ${lib} examples test
 
 ${lib}:
-	g++ -g -c --std=c++0x -I./ ${src} -Wall 
+	g++ -c ${flags} -I./ ${src} -Wall 
 	ar crv libfishdb.a ${obj}
 
 examples: ${lib}
-	g++ -g --std=c++0x -I./ examples/ex_basic.cpp -o examples/ex_basic ${lib} -Wall
-	g++ -g --std=c++0x -I./ examples/ex_iter.cpp -o examples/ex_iter ${lib} -Wall
+	g++ ${flags} -I./ examples/ex_basic.cpp -o examples/ex_basic ${lib} -Wall
+	g++ ${flags} -I./ examples/ex_iter.cpp -o examples/ex_iter ${lib} -Wall
 
 test: ${lib}
-	g++ -g --std=c++0x -I./ -o fdb_test ${test_src} ${lib} -Wall
+	g++ ${flags} -I./ -o fdb_test ${test_src} ${lib} -lrt -Wall
 
 .PHONY: clean
 
