@@ -134,13 +134,13 @@ void BTree::Insert(std::shared_ptr<MemPage> now, std::shared_ptr<MemPage> parent
     auto right = m_pager.NewPage();
 
     left->is_leaf = right->is_leaf = now->is_leaf;
-	left->kvs.assign(now->kvs.begin(), now->kvs.begin() + mid);
-	right->kvs.assign(now->kvs.begin() + mid + 1, now->kvs.end());
-	if (!now->is_leaf)
-	{
-		left->children.assign(now->children.begin(), now->children.begin() + mid + 1);
-		right->children.assign(now->children.begin() + mid + 1, now->children.end());
-	}
+    left->kvs.assign(now->kvs.begin(), now->kvs.begin() + mid);
+    right->kvs.assign(now->kvs.begin() + mid + 1, now->kvs.end());
+    if (!now->is_leaf)
+    {
+        left->children.assign(now->children.begin(), now->children.begin() + mid + 1);
+        right->children.assign(now->children.begin() + mid + 1, now->children.end());
+    }
 
     if (!parent)
     {
@@ -148,10 +148,10 @@ void BTree::Insert(std::shared_ptr<MemPage> now, std::shared_ptr<MemPage> parent
         m_root->is_leaf = false;
         parent = m_root;
         m_pager.SetRoot(m_root->header.page_no);
-		assert(upper_idx == 0);
-		parent->children.resize(upper_idx + 1);
+        assert(upper_idx == 0);
+        parent->children.resize(upper_idx + 1);
     }
-	assert(upper_idx < (int)parent->children.size());
+    assert(upper_idx < (int)parent->children.size());
     parent->kvs.insert(parent->kvs.begin() + upper_idx, now->kvs[mid]);
     parent->children[upper_idx] = left->header.page_no;
     parent->children.insert(parent->children.begin() + upper_idx + 1, right->header.page_no);
@@ -168,47 +168,47 @@ int BTree::Delete(std::shared_ptr<MemPage> now, std::shared_ptr<MemPage> parent,
     auto iter = LowerBound(now, key);
     size_t p = iter - now->kvs.begin();
 
-	int del_ret = BT_NOT_FOUND;
+    int del_ret = BT_NOT_FOUND;
     if (iter != now->kvs.end() && Equal(iter->key, key))
     {
         if (!now->is_leaf)
         {
-			auto left = ReadPage(now->children[p]);
+            auto left = ReadPage(now->children[p]);
             auto nd = left;
             while (!nd->is_leaf)
                 nd = ReadPage(nd->children.back());
 
             now->kvs[p] = nd->kvs.back();
-			Delete(left, now, p, nd->kvs.back().key);
+            Delete(left, now, p, nd->kvs.back().key);
         }
         else
             now->kvs.erase(iter);
-		del_ret = BT_OK;
+        del_ret = BT_OK;
     }
     else if (!now->is_leaf)
-		del_ret = Delete(ReadPage(now->children[p]), now, p, key);
+        del_ret = Delete(ReadPage(now->children[p]), now, p, key);
 
-	// maintain now
-	if (now == m_root)
-	{
-		if (now->is_leaf || now->kvs.size() > 0) return del_ret;
-		assert(now->children.size() == 1);
-		m_root = ReadPage(now->children[0]);
-	}
-	else if ((int)now->kvs.size() < m_min_key_num)
-		Maintain(now, parent, child_idx);
+    // maintain now
+    if (now == m_root)
+    {
+        if (now->is_leaf || now->kvs.size() > 0) return del_ret;
+        assert(now->children.size() == 1);
+        m_root = ReadPage(now->children[0]);
+    }
+    else if ((int)now->kvs.size() < m_min_key_num)
+        Maintain(now, parent, child_idx);
 
-	return del_ret;
+    return del_ret;
 }
 
 void BTree::Maintain(std::shared_ptr<MemPage> now, std::shared_ptr<MemPage> parent, int child_idx)
 {
-	size_t left_sep = (child_idx > 0) ? child_idx - 1 : -1;
-	size_t right_sep = (child_idx < (int)parent->children.size() - 1) ? child_idx : -1;
-	auto left = (child_idx > 0) ? ReadPage(parent->children[child_idx - 1]) : nil;
-	auto right = (child_idx < (int)parent->children.size() - 1) ? ReadPage(parent->children[child_idx + 1]) : nil;
+    size_t left_sep = (child_idx > 0) ? child_idx - 1 : -1;
+    size_t right_sep = (child_idx < (int)parent->children.size() - 1) ? child_idx : -1;
+    auto left = (child_idx > 0) ? ReadPage(parent->children[child_idx - 1]) : nil;
+    auto right = (child_idx < (int)parent->children.size() - 1) ? ReadPage(parent->children[child_idx + 1]) : nil;
 
-	// 1.
+    // 1.
     if (left && (int)left->kvs.size() > m_min_key_num)
     {
         now->kvs.insert(now->kvs.begin(), parent->kvs[left_sep]);
@@ -221,7 +221,7 @@ void BTree::Maintain(std::shared_ptr<MemPage> now, std::shared_ptr<MemPage> pare
         left->kvs.pop_back();
         return;
     }
-	// 2.
+    // 2.
     if (right && (int)right->kvs.size() > m_min_key_num)
     {
         now->kvs.push_back(parent->kvs[right_sep]);
@@ -234,22 +234,22 @@ void BTree::Maintain(std::shared_ptr<MemPage> now, std::shared_ptr<MemPage> pare
         right->kvs.erase(right->kvs.begin());
         return;
     }
-	// 3a.
+    // 3a.
     if (left)
     {
         left->kvs.push_back(parent->kvs[left_sep]);
-		left->kvs.insert(left->kvs.end(), now->kvs.begin(), now->kvs.end());
-		left->children.insert(left->children.end(), now->children.begin(), now->children.end());
+        left->kvs.insert(left->kvs.end(), now->kvs.begin(), now->kvs.end());
+        left->children.insert(left->children.end(), now->children.begin(), now->children.end());
 
         parent->kvs.erase(parent->kvs.begin() + left_sep);
         parent->children.erase(parent->children.begin() + left_sep + 1);
     }
-	// 3b.
+    // 3b.
     else if (right)
     {
         now->kvs.push_back(parent->kvs[right_sep]);
-		now->kvs.insert(now->kvs.end(), right->kvs.begin(), right->kvs.end());
-		now->children.insert(now->children.end(), right->children.begin(), right->children.end());
+        now->kvs.insert(now->kvs.end(), right->kvs.begin(), right->kvs.end());
+        now->children.insert(now->children.end(), right->children.begin(), right->children.end());
 
         parent->kvs.erase(parent->kvs.begin() + right_sep);
         parent->children.erase(parent->children.begin() + right_sep + 1);
